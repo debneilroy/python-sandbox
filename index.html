@@ -38,7 +38,12 @@
   .CodeMirror-gutters { background: #1A1D23 !important; border-right: none !important; }
   .CodeMirror-linenumber { color: #4A4D55 !important; }
   .CodeMirror-cursor { border-left: 2px solid #E8A33D !important; }
-  .CodeMirror-selected { background: #2A3040 !important; }
+  .CodeMirror-selected { background: #3D5A80 !important; }
+  .CodeMirror-focused .CodeMirror-selected { background: #3D5A80 !important; }
+  .cm-searching, .CodeMirror ::selection { background: #3D5A80 !important; }
+  .CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
+    background: #3D5A80 !important;
+  }
   .CodeMirror-matchingbracket { color: #6FCF8F !important; background: #2A3F33; }
   .cm-keyword { color: #E8A33D !important; }
   .cm-def { color: #7DB8E8 !important; }
@@ -61,6 +66,28 @@
     color: #1A1D23 !important;
   }
   .cm-hint-type { color: #6E6C66; font-size: 11px; float: right; margin-left: 12px; }
+  .CodeMirror pre.CodeMirror-line { position: relative; }
+  .cm-indent-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid #2A2E37;
+    pointer-events: none;
+  }
+  #testsEditor {
+    flex: 1;
+    background: #1A1D23;
+    color: #E8E6E1;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    min-height: 60px;
+  }
+  #testsEditor::placeholder { color: #4A4D55; }
   @media (max-width: 640px) {
     #splitArea { flex-direction: column; min-height: auto !important; }
     #splitArea > div:first-child { border-right: none !important; border-bottom: 0.5px solid #2E323B !important; min-height: 300px; }
@@ -96,6 +123,18 @@
         <i class="ti ti-trash" style="font-size:15px;" aria-hidden="true"></i>
       </button>
 
+      <div style="width:1px; height:20px; background:#3A3E47; margin:0 2px;"></div>
+
+      <div id="timerWrap" style="display:flex; align-items:center; gap:6px;">
+        <span id="timerDisplay" style="font-family:'JetBrains Mono', monospace; font-size:13px; color:#9A9890; min-width:52px;">00:00</span>
+        <button id="timerToggleBtn" aria-label="Start timer" style="display:flex; align-items:center; justify-content:center; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 8px; cursor:pointer;">
+          <i class="ti ti-player-play" id="timerToggleIcon" style="font-size:14px;" aria-hidden="true"></i>
+        </button>
+        <button id="timerResetBtn" aria-label="Reset timer" style="display:flex; align-items:center; justify-content:center; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 8px; cursor:pointer;">
+          <i class="ti ti-refresh" style="font-size:14px;" aria-hidden="true"></i>
+        </button>
+      </div>
+
       <div style="flex:1;"></div>
 
       <div id="statusPill" style="display:flex; align-items:center; gap:6px; font-size:12px; color:#9A9890; font-family:'Inter',sans-serif;">
@@ -116,11 +155,35 @@
         </div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
-        <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between;">
+        <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between; align-items:center;">
           <span>Console</span>
-          <span id="execTime" style="color:#6E6C66;"></span>
+          <span style="display:flex; align-items:center; gap:10px;">
+            <span id="execTime" style="color:#6E6C66;"></span>
+            <button id="testsToggleBtn" style="background:transparent; border:none; color:#6E6C66; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;">
+              <i class="ti ti-checklist" style="font-size:14px;" aria-hidden="true"></i> Tests
+            </button>
+          </span>
         </div>
-        <div id="output" style="flex:1; padding:4px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; color:#C9C7C0; overflow:auto; white-space:pre-wrap; word-break:break-word;"></div>
+        <div id="output" style="flex:1; padding:4px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; color:#C9C7C0; overflow:auto; white-space:pre-wrap; word-break:break-word; min-height:0;"></div>
+
+        <!-- REPL prompt: type Python here, runs against the same
+             interpreter/namespace as the editor's Run button -->
+        <div style="display:flex; align-items:center; gap:6px; padding:6px 14px; border-top:0.5px solid #2E323B;">
+          <span style="color:#E8A33D; font-family:'JetBrains Mono', monospace; font-size:13px;">&gt;&gt;&gt;</span>
+          <input id="replInput" type="text" spellcheck="false" autocomplete="off" placeholder="Waiting for Python to start…" style="flex:1; background:transparent; border:none; outline:none; color:#E8E6E1; font-family:'JetBrains Mono', monospace; font-size:13px;">
+        </div>
+
+        <!-- Test-case runner panel (collapsed by default) -->
+        <div id="testsPanel" style="display:none; flex-direction:column; border-top:0.5px solid #2E323B; max-height:45%; min-height:160px;">
+          <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between; align-items:center;">
+            <span>Test cases</span>
+            <button id="runTestsBtn" style="display:flex; align-items:center; gap:4px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:'Inter',sans-serif; text-transform:none; letter-spacing:0;">
+              <i class="ti ti-player-play" style="font-size:12px;" aria-hidden="true"></i> Run tests
+            </button>
+          </div>
+          <textarea id="testsEditor" spellcheck="false" placeholder="assert two_sum([2,7,11,15], 9) == [0, 1]"></textarea>
+          <div id="testsResults" style="padding:6px 14px 10px; font-family:'JetBrains Mono', monospace; font-size:12.5px; line-height:1.6; color:#C9C7C0; overflow:auto;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -271,6 +334,35 @@ print([fib(i) for i in range(10)])
     cm.showHint({ hint: pythonHint, completeSingle: false });
   });
 
+  // --- Indent guides ---
+  // Draws a faint vertical line at each indentation level so nested
+  // for/if/def blocks are easy to trace visually. CodeMirror has no
+  // built-in option for this, so we hook the renderLine event and add
+  // one absolutely-positioned div per indent level, sized from the
+  // character width CodeMirror reports for this font.
+  editor.on('renderLine', function(cm, line, el) {
+    const text = line.text;
+    const leadingSpaces = (text.match(/^ */) || [''])[0].length;
+    const indentLevels = Math.floor(leadingSpaces / 4);
+    if (indentLevels < 1) return;
+
+    // Remove any guides from a previous render of this line
+    const old = el.querySelectorAll('.cm-indent-guide');
+    old.forEach(n => n.remove());
+
+    const charWidth = cm.defaultCharWidth();
+    for (let lvl = 1; lvl <= indentLevels; lvl++) {
+      const guide = document.createElement('div');
+      guide.className = 'cm-indent-guide';
+      guide.style.left = (lvl * 4 * charWidth) + 'px';
+      el.appendChild(guide);
+    }
+  });
+
+  // Note: renderLine fires automatically whenever a line's content or
+  // visible state changes, so no manual refresh-on-every-keystroke is
+  // needed here — that would be expensive and cause visible flicker.
+
   function setStatus(text, color) {
     statusText.textContent = text;
     statusDot.style.background = color;
@@ -301,6 +393,7 @@ print([fib(i) for i in range(10)])
       setStatus('Ready', '#6FCF8F');
       statusDot.style.animation = 'none';
       runBtn.disabled = false;
+      replInput.placeholder = 'Type Python and press Enter…';
     } catch (err) {
       setStatus('Failed to load Python', '#E07856');
       statusDot.style.animation = 'none';
@@ -348,6 +441,67 @@ print([fib(i) for i in range(10)])
 
   runBtn.addEventListener('click', runCode);
   clearBtn.addEventListener('click', () => { output.textContent = ''; execTime.textContent = ''; });
+
+  // --- Interactive REPL ---
+  // Lets you type Python directly into the console and run it against
+  // the same Pyodide namespace the Run button uses — so anything you
+  // defined by running the editor (classes, variables, functions) is
+  // still available here. Unlike Run, this never clears prior output.
+  const replInput = document.getElementById('replInput');
+  const replHistory = [];
+  let replHistoryIndex = -1;
+
+  function appendReplLine(text, color) {
+    const line = document.createElement('div');
+    const prompt = document.createElement('span');
+    prompt.textContent = '>>> ';
+    prompt.style.color = '#E8A33D';
+    line.appendChild(prompt);
+    const rest = document.createElement('span');
+    rest.textContent = text;
+    if (color) rest.style.color = color;
+    line.appendChild(rest);
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  async function runReplLine(line) {
+    if (!pyodide) {
+      appendOutput('Python is still starting up — try again in a moment.', '#E8A33D');
+      return;
+    }
+    appendReplLine(line);
+    try {
+      const result = await pyodide.runPythonAsync(line);
+      if (result !== undefined && result !== null) {
+        appendOutput(String(result), '#9A9890');
+      }
+    } catch (err) {
+      appendOutput(String(err.message || err), '#E07856');
+    }
+    output.scrollTop = output.scrollHeight;
+  }
+
+  replInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const line = replInput.value;
+      if (!line.trim()) return;
+      replHistory.push(line);
+      replHistoryIndex = replHistory.length;
+      replInput.value = '';
+      runReplLine(line);
+    } else if (e.key === 'ArrowUp') {
+      if (replHistory.length === 0) return;
+      e.preventDefault();
+      replHistoryIndex = Math.max(0, replHistoryIndex - 1);
+      replInput.value = replHistory[replHistoryIndex] || '';
+    } else if (e.key === 'ArrowDown') {
+      if (replHistory.length === 0) return;
+      e.preventDefault();
+      replHistoryIndex = Math.min(replHistory.length, replHistoryIndex + 1);
+      replInput.value = replHistory[replHistoryIndex] || '';
+    }
+  });
 
   // --- Persistence (localStorage — this is a standalone page now) ---
   function loadBuffer() {
@@ -420,8 +574,147 @@ print([fib(i) for i in range(10)])
     } catch {}
   });
 
+  // --- Timer ---
+  const timerDisplay = document.getElementById('timerDisplay');
+  const timerToggleBtn = document.getElementById('timerToggleBtn');
+  const timerToggleIcon = document.getElementById('timerToggleIcon');
+  const timerResetBtn = document.getElementById('timerResetBtn');
+  let timerSeconds = 0;
+  let timerInterval = null;
+  let timerRunning = false;
+
+  function formatTime(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function updateTimerDisplay() {
+    timerDisplay.textContent = formatTime(timerSeconds);
+  }
+
+  function toggleTimer() {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerToggleIcon.className = 'ti ti-player-play';
+      timerToggleBtn.setAttribute('aria-label', 'Start timer');
+    } else {
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+      timerRunning = true;
+      timerToggleIcon.className = 'ti ti-player-pause';
+      timerToggleBtn.setAttribute('aria-label', 'Pause timer');
+    }
+  }
+
+  timerToggleBtn.addEventListener('click', toggleTimer);
+  timerResetBtn.addEventListener('click', () => {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerSeconds = 0;
+    timerToggleIcon.className = 'ti ti-player-play';
+    timerToggleBtn.setAttribute('aria-label', 'Start timer');
+    updateTimerDisplay();
+  });
+
+  // --- Test-case runner ---
+  const testsToggleBtn = document.getElementById('testsToggleBtn');
+  const testsPanel = document.getElementById('testsPanel');
+  const testsEditor = document.getElementById('testsEditor');
+  const runTestsBtn = document.getElementById('runTestsBtn');
+  const testsResults = document.getElementById('testsResults');
+
+  const TESTS_KEY = STORAGE_PREFIX + 'tests:current';
+
+  testsToggleBtn.addEventListener('click', () => {
+    const isOpen = testsPanel.style.display === 'flex';
+    testsPanel.style.display = isOpen ? 'none' : 'flex';
+  });
+
+  testsEditor.addEventListener('input', () => {
+    try { localStorage.setItem(TESTS_KEY, testsEditor.value); } catch {}
+  });
+
+  function loadTestsBuffer() {
+    try {
+      const v = localStorage.getItem(TESTS_KEY);
+      if (v !== null) testsEditor.value = v;
+    } catch {}
+  }
+
+  async function runTests() {
+    if (!pyodide) {
+      testsResults.innerHTML = '<span style="color:#E8A33D;">Python is still starting up — try again in a moment.</span>';
+      return;
+    }
+    const assertLines = testsEditor.value
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && !l.startsWith('#'));
+
+    if (!assertLines.length) {
+      testsResults.innerHTML = '<span style="color:#6E6C66;">Write one assert per line, then click Run tests.</span>';
+      return;
+    }
+
+    runTestsBtn.disabled = true;
+    testsResults.innerHTML = '<span style="color:#6E6C66;">Running…</span>';
+
+    // Run the editor's code first (defines functions), then each
+    // assert line independently so one failure doesn't block the rest.
+    const mainCode = editor.getValue();
+    const resultsHtml = [];
+    let passCount = 0;
+
+    try {
+      await pyodide.runPythonAsync(mainCode);
+    } catch (err) {
+      testsResults.innerHTML = '<span style="color:#E07856;">Your code raised an error before tests could run:<br>' +
+        escapeHtml(String(err.message || err)) + '</span>';
+      runTestsBtn.disabled = false;
+      return;
+    }
+
+    for (let i = 0; i < assertLines.length; i++) {
+      const line = assertLines[i];
+      try {
+        // Wrap as a boolean check so we can report pass/fail without
+        // Python's AssertionError stopping the whole run.
+        const checkExpr = line.startsWith('assert ') ? line.slice(7) : line;
+        const result = await pyodide.runPythonAsync(`bool(${checkExpr})`);
+        if (result) {
+          passCount++;
+          resultsHtml.push('<div style="color:#6FCF8F;"><i class="ti ti-check" style="font-size:13px; vertical-align:-2px;"></i> ' + escapeHtml(line) + '</div>');
+        } else {
+          resultsHtml.push('<div style="color:#E07856;"><i class="ti ti-x" style="font-size:13px; vertical-align:-2px;"></i> ' + escapeHtml(line) + '</div>');
+        }
+      } catch (err) {
+        resultsHtml.push('<div style="color:#E07856;"><i class="ti ti-alert-triangle" style="font-size:13px; vertical-align:-2px;"></i> ' +
+          escapeHtml(line) + '<br><span style="color:#9A9890; font-size:11.5px; padding-left:18px;">' +
+          escapeHtml(String(err.message || err)) + '</span></div>');
+      }
+    }
+
+    const summary = '<div style="margin-bottom:6px; color:' + (passCount === assertLines.length ? '#6FCF8F' : '#E8A33D') + ';">' +
+      passCount + ' / ' + assertLines.length + ' passed</div>';
+    testsResults.innerHTML = summary + resultsHtml.join('');
+    runTestsBtn.disabled = false;
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  runTestsBtn.addEventListener('click', runTests);
+
   // --- Init ---
   loadBuffer();
+  loadTestsBuffer();
   refreshSnippetList();
   boot();
   editor.refresh();
