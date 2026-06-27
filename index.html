@@ -80,12 +80,15 @@
   }
   .cm-hint-type { color: #6E6C66; font-size: 11px; float: right; margin-left: 12px; }
   .CodeMirror pre.CodeMirror-line { position: relative; }
-  .cm-indent-guide {
+  .cm-indent-dots {
     position: absolute;
     top: 0;
     bottom: 0;
-    border-left: 1px solid #454B58;
+    left: 0;
     pointer-events: none;
+    background-image: radial-gradient(circle, #6B7280 1px, transparent 1.4px);
+    background-repeat: repeat-x;
+    background-position: center center;
   }
   #testsEditor {
     flex: 1;
@@ -356,20 +359,20 @@ print([fib(i) for i in range(10)])
   editor.on('renderLine', function(cm, line, el) {
     const text = line.text;
     const leadingSpaces = (text.match(/^ */) || [''])[0].length;
-    const indentLevels = Math.floor(leadingSpaces / 4);
-    if (indentLevels < 1) return;
 
-    // Remove any guides from a previous render of this line
-    const old = el.querySelectorAll('.cm-indent-guide');
-    old.forEach(n => n.remove());
+    // Remove any guide from a previous render of this line
+    const old = el.querySelector('.cm-indent-dots');
+    if (old) old.remove();
+    if (leadingSpaces < 1) return;
 
     const charWidth = cm.defaultCharWidth();
-    for (let lvl = 1; lvl <= indentLevels; lvl++) {
-      const guide = document.createElement('div');
-      guide.className = 'cm-indent-guide';
-      guide.style.left = (lvl * 4 * charWidth) + 'px';
-      el.appendChild(guide);
-    }
+    const dotLayer = document.createElement('div');
+    dotLayer.className = 'cm-indent-dots';
+    dotLayer.style.width = (leadingSpaces * charWidth) + 'px';
+    // One dot centered in the middle of every 4th character cell
+    // (i.e. one per indent level), matching indentUnit: 4.
+    dotLayer.style.backgroundSize = (charWidth * 4) + 'px 100%';
+    el.appendChild(dotLayer);
   });
 
   // Note: renderLine fires automatically whenever a line's content or
@@ -484,10 +487,27 @@ print([fib(i) for i in range(10)])
       return;
     }
     appendReplLine(line);
+
+    const trimmed = line.trim();
+    const isAssert = /^assert\s+/.test(trimmed);
+
     try {
-      const result = await pyodide.runPythonAsync(line);
-      if (result !== undefined && result !== null) {
-        appendOutput(String(result), '#9A9890');
+      if (isAssert) {
+        // Run as a boolean check instead of a literal assert, so a
+        // failure shows a clean ✗ here too, instead of a raw
+        // AssertionError traceback.
+        const checkExpr = trimmed.replace(/^assert\s+/, '');
+        const passed = await pyodide.runPythonAsync(`bool(${checkExpr})`);
+        if (passed) {
+          appendOutput('✓ Passed', '#6FCF8F');
+        } else {
+          appendOutput('✗ Failed', '#E07856');
+        }
+      } else {
+        const result = await pyodide.runPythonAsync(line);
+        if (result !== undefined && result !== null) {
+          appendOutput(String(result), '#9A9890');
+        }
       }
     } catch (err) {
       appendOutput(String(err.message || err), '#E07856');
