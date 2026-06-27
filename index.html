@@ -112,14 +112,19 @@
 
       <div style="width:1px; height:20px; background:#3A3E47; margin:0 2px;"></div>
 
-      <select id="snippetSelect" style="background:#22262E; color:#C9C7C0; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 8px; font-size:13px; font-family:'Inter',sans-serif; max-width:160px;">
-        <option value="">Saved snippets…</option>
-      </select>
+      <div style="position:relative;">
+        <button id="snippetsBtn" style="display:flex; align-items:center; gap:6px; background:#22262E; color:#C9C7C0; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-size:13px; font-family:'Inter',sans-serif; cursor:pointer;">
+          <i class="ti ti-folder" style="font-size:15px;" aria-hidden="true"></i>
+          <span id="snippetsBtnLabel">Saved snippets…</span>
+          <i class="ti ti-chevron-down" style="font-size:14px;" aria-hidden="true"></i>
+        </button>
+        <div id="snippetsPanel" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; width:220px; background:#22262E; border:0.5px solid #3A3E47; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.4); z-index:20; overflow:hidden;">
+          <input id="snippetSearch" type="text" placeholder="Search snippets…" autocomplete="off" style="width:100%; box-sizing:border-box; background:#1A1D23; color:#E8E6E1; border:none; border-bottom:0.5px solid #3A3E47; padding:8px 10px; font-size:13px; font-family:'Inter',sans-serif; outline:none;">
+          <div id="snippetList" style="max-height:220px; overflow-y:auto;"></div>
+        </div>
+      </div>
       <button id="saveBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
         <i class="ti ti-device-floppy" style="font-size:15px;" aria-hidden="true"></i> Save as…
-      </button>
-      <button id="deleteBtn" style="display:none; align-items:center; gap:6px; background:transparent; color:#E07856; border:0.5px solid #4A332C; border-radius:6px; padding:7px 10px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
-        <i class="ti ti-trash" style="font-size:15px;" aria-hidden="true"></i>
       </button>
 
       <div style="width:1px; height:20px; background:#3A3E47; margin:0 2px;"></div>
@@ -195,9 +200,12 @@
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const execTime = document.getElementById('execTime');
-  const snippetSelect = document.getElementById('snippetSelect');
+  const snippetsBtn = document.getElementById('snippetsBtn');
+  const snippetsBtnLabel = document.getElementById('snippetsBtnLabel');
+  const snippetsPanel = document.getElementById('snippetsPanel');
+  const snippetSearch = document.getElementById('snippetSearch');
+  const snippetList = document.getElementById('snippetList');
   const saveBtn = document.getElementById('saveBtn');
-  const deleteBtn = document.getElementById('deleteBtn');
   const retryBtn = document.getElementById('retryBtn');
 
   const STORAGE_PREFIX = 'pysandbox:';
@@ -669,33 +677,125 @@ print([fib(i) for i in range(10)])
   }
   editor.on('change', scheduleAutosave);
 
-  function refreshSnippetList() {
-    snippetSelect.innerHTML = '<option value="">Saved snippets…</option>';
+  // --- Snippets: searchable list panel ---
+  let allSnippetNames = [];
+  let currentSnippetName = null;
+
+  function loadAllSnippetNames() {
+    allSnippetNames = [];
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith(SNIPPET_PREFIX)) {
-          const name = k.slice(SNIPPET_PREFIX.length);
-          const opt = document.createElement('option');
-          opt.value = k;
-          opt.textContent = name;
-          snippetSelect.appendChild(opt);
+          allSnippetNames.push(k.slice(SNIPPET_PREFIX.length));
         }
       }
+      allSnippetNames.sort((a, b) => a.localeCompare(b));
     } catch {}
   }
 
-  snippetSelect.addEventListener('change', () => {
-    const key = snippetSelect.value;
-    deleteBtn.style.display = key ? 'flex' : 'none';
-    if (!key) return;
-    try {
-      const v = localStorage.getItem(key);
-      if (v !== null) {
-        editor.setValue(v);
-        scheduleAutosave();
-      }
-    } catch {}
+  function renderSnippetList(filterText) {
+    const query = (filterText || '').toLowerCase();
+    const matches = allSnippetNames.filter(name => name.toLowerCase().includes(query));
+    snippetList.innerHTML = '';
+
+    if (!matches.length) {
+      const empty = document.createElement('div');
+      empty.textContent = allSnippetNames.length ? 'No matches' : 'No saved snippets yet';
+      empty.style.padding = '10px';
+      empty.style.fontSize = '13px';
+      empty.style.color = '#6E6C66';
+      empty.style.fontFamily = "'Inter',sans-serif";
+      snippetList.appendChild(empty);
+      return;
+    }
+
+    matches.forEach(name => {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+      row.style.padding = '7px 10px';
+      row.style.cursor = 'pointer';
+      row.style.fontSize = '13px';
+      row.style.fontFamily = "'Inter',sans-serif";
+      row.style.color = '#C9C7C0';
+      row.addEventListener('mouseenter', () => { row.style.background = '#2A2E37'; });
+      row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
+
+      const label = document.createElement('span');
+      label.textContent = name;
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+      label.style.whiteSpace = 'nowrap';
+      row.appendChild(label);
+
+      const del = document.createElement('i');
+      del.className = 'ti ti-trash';
+      del.style.fontSize = '14px';
+      del.style.color = '#9A9890';
+      del.style.flexShrink = '0';
+      del.style.marginLeft = '8px';
+      del.addEventListener('mouseenter', () => { del.style.color = '#E07856'; });
+      del.addEventListener('mouseleave', () => { del.style.color = '#9A9890'; });
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm('Delete "' + name + '"?')) return;
+        try { localStorage.removeItem(SNIPPET_PREFIX + name); } catch {}
+        if (currentSnippetName === name) {
+          currentSnippetName = null;
+          snippetsBtnLabel.textContent = 'Saved snippets…';
+        }
+        loadAllSnippetNames();
+        renderSnippetList(snippetSearch.value);
+      });
+      row.appendChild(del);
+
+      row.addEventListener('click', () => {
+        try {
+          const v = localStorage.getItem(SNIPPET_PREFIX + name);
+          if (v !== null) {
+            editor.setValue(v);
+            scheduleAutosave();
+            currentSnippetName = name;
+            snippetsBtnLabel.textContent = name;
+          }
+        } catch {}
+        closeSnippetsPanel();
+      });
+
+      snippetList.appendChild(row);
+    });
+  }
+
+  function openSnippetsPanel() {
+    loadAllSnippetNames();
+    snippetSearch.value = '';
+    renderSnippetList('');
+    snippetsPanel.style.display = 'block';
+    snippetSearch.focus();
+  }
+
+  function closeSnippetsPanel() {
+    snippetsPanel.style.display = 'none';
+  }
+
+  snippetsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (snippetsPanel.style.display === 'block') {
+      closeSnippetsPanel();
+    } else {
+      openSnippetsPanel();
+    }
+  });
+
+  snippetSearch.addEventListener('input', () => renderSnippetList(snippetSearch.value));
+  snippetSearch.addEventListener('click', (e) => e.stopPropagation());
+
+  document.addEventListener('click', (e) => {
+    if (!snippetsPanel.contains(e.target) && e.target !== snippetsBtn) {
+      closeSnippetsPanel();
+    }
   });
 
   saveBtn.addEventListener('click', () => {
@@ -703,23 +803,11 @@ print([fib(i) for i in range(10)])
     if (!name) return;
     try {
       localStorage.setItem(SNIPPET_PREFIX + name, editor.getValue());
-      refreshSnippetList();
-      snippetSelect.value = SNIPPET_PREFIX + name;
-      deleteBtn.style.display = 'flex';
+      currentSnippetName = name;
+      snippetsBtnLabel.textContent = name;
     } catch {
       appendOutput('Could not save snippet (storage may be full or blocked).', '#E07856');
     }
-  });
-
-  deleteBtn.addEventListener('click', () => {
-    const key = snippetSelect.value;
-    if (!key) return;
-    if (!confirm('Delete this saved snippet?')) return;
-    try {
-      localStorage.removeItem(key);
-      refreshSnippetList();
-      deleteBtn.style.display = 'none';
-    } catch {}
   });
 
   // --- Timer ---
@@ -770,7 +858,6 @@ print([fib(i) for i in range(10)])
 
   // --- Init ---
   loadBuffer();
-  refreshSnippetList();
   boot();
   editor.refresh();
   window.addEventListener('resize', () => editor.refresh());
