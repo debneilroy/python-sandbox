@@ -12,13 +12,10 @@
     margin: 0;
     background: #0F1115;
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    padding: 32px;
     font-family: 'Inter', sans-serif;
   }
-  #wrap { width: 100%; max-width: 1100px; }
+  #wrap { width: 100%; max-width: 1600px; margin: 0 auto; }
   #pageTitle {
     color: #E8E6E1;
     font-size: 15px;
@@ -28,9 +25,9 @@
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
   textarea:focus, button:focus, select:focus { outline: 2px solid #E8A33D; outline-offset: 1px; }
   @media (max-width: 640px) {
-    #splitArea { flex-direction: column; }
-    #splitArea > div:first-child { border-right: none !important; border-bottom: 0.5px solid #2E323B !important; min-height: 260px; }
-    #splitArea > div:last-child { min-height: 200px; }
+    #splitArea { flex-direction: column; min-height: auto !important; }
+    #splitArea > div:first-child { border-right: none !important; border-bottom: 0.5px solid #2E323B !important; min-height: 300px; }
+    #splitArea > div:last-child { min-height: 240px; }
   }
 </style>
 </head>
@@ -74,7 +71,7 @@
     </div>
 
     <!-- Split panes -->
-    <div id="splitArea" style="display:flex; min-height:420px;">
+    <div id="splitArea" style="display:flex; min-height:calc(100vh - 160px);">
       <div style="flex:1.3; display:flex; flex-direction:column; min-width:0; border-right:0.5px solid #2E323B;">
         <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif;">Editor</div>
         <textarea id="editor" spellcheck="false" style="flex:1; background:#1A1D23; color:#E8E6E1; border:none; outline:none; resize:none; padding:4px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; tab-size:4; white-space:pre; overflow:auto;"></textarea>
@@ -92,7 +89,7 @@
   <p style="color:#5A584F; font-size:12px; margin:10px 2px 0;">Code autosaves to this browser. Use "Save as…" to keep named snippets. Shortcut: Cmd/Ctrl+Enter to run.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script src="./pyodide/pyodide.js"></script>
 <script>
 (function() {
   const editor = document.getElementById('editor');
@@ -158,7 +155,7 @@ print([fib(i) for i in range(10)])
 
     try {
       pyodide = await loadPyodide({
-        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
+        indexURL: "./pyodide/"
       });
       pyodide.setStdout({ batched: (s) => appendOutput(s + '\n') });
       pyodide.setStderr({ batched: (s) => appendOutput(s + '\n', '#E07856') });
@@ -169,7 +166,7 @@ print([fib(i) for i in range(10)])
       setStatus('Failed to load Python', '#E07856');
       statusDot.style.animation = 'none';
       retryBtn.style.display = 'flex';
-      appendOutput('Could not load the Python runtime.\n\nDetails: ' + (err && (err.stack || err.message || err)) + '\n\nCheck your internet connection, then click Retry.', '#E07856');
+      appendOutput('Could not load the Python runtime.\n\nDetails: ' + (err && (err.stack || err.message || err)) + '\n\nThe pyodide/ folder may be missing a file. Click Retry, or re-check that all 5 files were uploaded to the pyodide/ folder.', '#E07856');
       console.error('Pyodide load error:', err);
     }
   }
