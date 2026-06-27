@@ -131,11 +131,11 @@
 
       <div id="timerWrap" style="display:flex; align-items:center; gap:6px;">
         <span id="timerDisplay" style="font-family:'JetBrains Mono', monospace; font-size:13px; color:#9A9890; min-width:52px;">00:00</span>
-        <button id="timerToggleBtn" aria-label="Start timer" style="display:flex; align-items:center; justify-content:center; gap:4px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 8px; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; line-height:1;">
-          <i class="ti ti-checklist" id="timerToggleIcon" style="font-size:14px;" aria-hidden="true"></i>
+        <button id="timerToggleBtn" aria-label="Start timer" style="display:flex; align-items:center; justify-content:center; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:13px; line-height:1; min-width:30px;">
+          <span id="timerToggleIcon" aria-hidden="true">▶</span>
         </button>
-        <button id="timerResetBtn" aria-label="Reset timer" style="display:flex; align-items:center; justify-content:center; gap:4px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 8px; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; line-height:1;">
-          <i class="ti ti-trash" style="font-size:14px;" aria-hidden="true"></i>
+        <button id="timerResetBtn" aria-label="Reset timer" style="display:flex; align-items:center; justify-content:center; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:13px; line-height:1; min-width:30px;">
+          <span aria-hidden="true">↺</span>
         </button>
       </div>
 
@@ -833,7 +833,7 @@ print([fib(i) for i in range(10)])
     if (timerRunning) {
       clearInterval(timerInterval);
       timerRunning = false;
-      timerToggleIcon.className = 'ti ti-checklist';
+      timerToggleIcon.textContent = '▶';
       timerToggleBtn.setAttribute('aria-label', 'Start timer');
     } else {
       timerInterval = setInterval(() => {
@@ -841,7 +841,7 @@ print([fib(i) for i in range(10)])
         updateTimerDisplay();
       }, 1000);
       timerRunning = true;
-      timerToggleIcon.className = 'ti ti-eraser';
+      timerToggleIcon.textContent = '❘❘';
       timerToggleBtn.setAttribute('aria-label', 'Pause timer');
     }
   }
@@ -851,7 +851,7 @@ print([fib(i) for i in range(10)])
     clearInterval(timerInterval);
     timerRunning = false;
     timerSeconds = 0;
-    timerToggleIcon.className = 'ti ti-checklist';
+    timerToggleIcon.textContent = '▶';
     timerToggleBtn.setAttribute('aria-label', 'Start timer');
     updateTimerDisplay();
   });
