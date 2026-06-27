@@ -80,15 +80,12 @@
   }
   .cm-hint-type { color: #6E6C66; font-size: 11px; float: right; margin-left: 12px; }
   .CodeMirror pre.CodeMirror-line { position: relative; }
-  .cm-indent-dots {
+  .cm-indent-guide {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 0;
+    border-left: 1px solid #52586A;
     pointer-events: none;
-    background-image: radial-gradient(circle, #6B7280 1px, transparent 1.4px);
-    background-repeat: repeat-x;
-    background-position: center center;
   }
   @media (max-width: 640px) {
     #splitArea { flex-direction: column; min-height: auto !important; }
@@ -329,20 +326,20 @@ print([fib(i) for i in range(10)])
   editor.on('renderLine', function(cm, line, el) {
     const text = line.text;
     const leadingSpaces = (text.match(/^ */) || [''])[0].length;
+    const indentLevels = Math.floor(leadingSpaces / 4);
 
-    // Remove any guide from a previous render of this line
-    const old = el.querySelector('.cm-indent-dots');
-    if (old) old.remove();
-    if (leadingSpaces < 1) return;
+    // Remove any guides from a previous render of this line
+    const old = el.querySelectorAll('.cm-indent-guide');
+    old.forEach(n => n.remove());
+    if (indentLevels < 1) return;
 
     const charWidth = cm.defaultCharWidth();
-    const dotLayer = document.createElement('div');
-    dotLayer.className = 'cm-indent-dots';
-    dotLayer.style.width = (leadingSpaces * charWidth) + 'px';
-    // One dot centered in the middle of every 4th character cell
-    // (i.e. one per indent level), matching indentUnit: 4.
-    dotLayer.style.backgroundSize = (charWidth * 4) + 'px 100%';
-    el.appendChild(dotLayer);
+    for (let lvl = 1; lvl <= indentLevels; lvl++) {
+      const guide = document.createElement('div');
+      guide.className = 'cm-indent-guide';
+      guide.style.left = (lvl * 4 * charWidth) + 'px';
+      el.appendChild(guide);
+    }
   });
 
   // Note: renderLine fires automatically whenever a line's content or
@@ -504,6 +501,25 @@ print([fib(i) for i in range(10)])
       replHistoryIndex = Math.min(replHistory.length, replHistoryIndex + 1);
       replInput.value = replHistory[replHistoryIndex] || '';
     }
+  });
+
+  // Pasting multiple lines at once (e.g. several tree-setup statements)
+  // would otherwise land as one squashed line and fail with a syntax
+  // error. Instead, split on newlines and run each line in sequence,
+  // exactly as if it had been typed and Enter pressed individually.
+  replInput.addEventListener('paste', (e) => {
+    const text = e.clipboardData.getData('text');
+    if (!text.includes('\n')) return; // single line: let default paste happen
+
+    e.preventDefault();
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    (async () => {
+      for (const line of lines) {
+        replHistory.push(line);
+        replHistoryIndex = replHistory.length;
+        await runReplLine(line);
+      }
+    })();
   });
 
   // --- Persistence (localStorage — this is a standalone page now) ---
