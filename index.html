@@ -351,12 +351,22 @@ print([fib(i) for i in range(10)])
     statusDot.style.background = color;
   }
 
+  function scrollOutputToBottom() {
+    // Wait a frame so scrollHeight reflects the just-appended content;
+    // reading it synchronously right after appendChild can race ahead
+    // of layout, especially when many lines are appended back-to-back
+    // (e.g. a multi-line paste).
+    requestAnimationFrame(() => {
+      output.scrollTop = output.scrollHeight;
+    });
+  }
+
   function appendOutput(text, color) {
     const span = document.createElement('span');
     span.textContent = text;
     if (color) span.style.color = color;
     output.appendChild(span);
-    output.scrollTop = output.scrollHeight;
+    scrollOutputToBottom();
   }
 
   let pyodide = null;
@@ -445,7 +455,7 @@ print([fib(i) for i in range(10)])
     if (color) rest.style.color = color;
     line.appendChild(rest);
     output.appendChild(line);
-    output.scrollTop = output.scrollHeight;
+    scrollOutputToBottom();
   }
 
   async function runReplLine(line) {
@@ -479,7 +489,7 @@ print([fib(i) for i in range(10)])
     } catch (err) {
       appendOutput(String(err.message || err), '#E07856');
     }
-    output.scrollTop = output.scrollHeight;
+    scrollOutputToBottom();
   }
 
   replInput.addEventListener('keydown', (e) => {
