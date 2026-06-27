@@ -306,6 +306,31 @@ print([fib(i) for i in range(10)])
         cm.replaceSelection('    ', 'end');
       },
       'Shift-Tab': 'indentLess',
+      'Backspace': function(cm) {
+        // If the cursor is inside leading whitespace, delete a full
+        // 4-space indent level instead of one space at a time —
+        // otherwise dedenting out of a nested block means holding
+        // Backspace through every individual space.
+        if (cm.somethingSelected()) {
+          cm.replaceSelection('', 'around');
+          return;
+        }
+        const cursor = cm.getCursor();
+        const line = cm.getLine(cursor.line);
+        const beforeCursor = line.slice(0, cursor.ch);
+        const isAllWhitespace = /^\s*$/.test(beforeCursor);
+
+        if (isAllWhitespace && cursor.ch > 0) {
+          const deleteCount = ((cursor.ch - 1) % 4) + 1;
+          cm.replaceRange(
+            '',
+            CodeMirror.Pos(cursor.line, cursor.ch - deleteCount),
+            CodeMirror.Pos(cursor.line, cursor.ch)
+          );
+        } else {
+          cm.execCommand('delCharBefore');
+        }
+      },
       'Cmd-Enter': function() { runCode(); },
       'Ctrl-Enter': function() { runCode(); },
       'Ctrl-Space': function(cm) { cm.showHint(); }
