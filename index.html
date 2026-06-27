@@ -12,10 +12,10 @@
     margin: 0;
     background: #0F1115;
     min-height: 100vh;
-    padding: 32px;
+    padding: 20px 24px;
     font-family: 'Inter', sans-serif;
   }
-  #wrap { width: 100%; max-width: 1600px; margin: 0 auto; }
+  #wrap { width: 100%; max-width: none; margin: 0 auto; }
   #pageTitle {
     color: #E8E6E1;
     font-size: 15px;
@@ -71,7 +71,7 @@
     </div>
 
     <!-- Split panes -->
-    <div id="splitArea" style="display:flex; min-height:calc(100vh - 160px);">
+    <div id="splitArea" style="display:flex; min-height:calc(100vh - 130px);">
       <div style="flex:1.3; display:flex; flex-direction:column; min-width:0; border-right:0.5px solid #2E323B;">
         <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif;">Editor</div>
         <textarea id="editor" spellcheck="false" style="flex:1; background:#1A1D23; color:#E8E6E1; border:none; outline:none; resize:none; padding:4px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; tab-size:4; white-space:pre; overflow:auto;"></textarea>
