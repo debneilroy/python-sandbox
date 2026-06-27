@@ -332,25 +332,36 @@ print([fib(i) for i in range(10)])
   // Draws a faint vertical line at each indentation level so nested
   // for/if/def blocks are easy to trace visually. CodeMirror has no
   // built-in option for this, so we hook the renderLine event and add
-  // one absolutely-positioned div per indent level, sized from the
-  // character width CodeMirror reports for this font.
+  // one absolutely-positioned div per indent level.
+  //
+  // Performance note: this runs on every line render, including ones
+  // triggered by normal typing, so it's kept as cheap as possible —
+  // char width is measured once and cached (it's a font metric, not
+  // per-line data), and we skip the DOM cleanup query entirely when a
+  // line has no guides to remove.
+  let cachedCharWidth = null;
   editor.on('renderLine', function(cm, line, el) {
+    if (cachedCharWidth === null) cachedCharWidth = cm.defaultCharWidth();
+
     const text = line.text;
     const leadingSpaces = (text.match(/^ */) || [''])[0].length;
     const indentLevels = Math.floor(leadingSpaces / 4);
 
-    // Remove any guides from a previous render of this line
-    const old = el.querySelectorAll('.cm-indent-guide');
-    old.forEach(n => n.remove());
+    if (el.dataset.hasGuides === '1') {
+      el.querySelectorAll('.cm-indent-guide').forEach(n => n.remove());
+      delete el.dataset.hasGuides;
+    }
     if (indentLevels < 1) return;
 
-    const charWidth = cm.defaultCharWidth();
+    const frag = document.createDocumentFragment();
     for (let lvl = 1; lvl <= indentLevels; lvl++) {
       const guide = document.createElement('div');
       guide.className = 'cm-indent-guide';
-      guide.style.left = (lvl * 4 * charWidth) + 'px';
-      el.appendChild(guide);
+      guide.style.left = (lvl * 4 * cachedCharWidth) + 'px';
+      frag.appendChild(guide);
     }
+    el.appendChild(frag);
+    el.dataset.hasGuides = '1';
   });
 
   // Note: renderLine fires automatically whenever a line's content or
