@@ -6,6 +6,9 @@
 <title>Python sandbox</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/@tabler/icons-webfont/2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -24,6 +27,40 @@
   }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
   textarea:focus, button:focus, select:focus { outline: 2px solid #E8A33D; outline-offset: 1px; }
+  .CodeMirror {
+    height: 100%;
+    background: #1A1D23 !important;
+    color: #E8E6E1 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+  }
+  .CodeMirror-gutters { background: #1A1D23 !important; border-right: none !important; }
+  .CodeMirror-linenumber { color: #4A4D55 !important; }
+  .CodeMirror-cursor { border-left: 2px solid #E8A33D !important; }
+  .CodeMirror-selected { background: #2A3040 !important; }
+  .CodeMirror-matchingbracket { color: #6FCF8F !important; background: #2A3F33; }
+  .cm-keyword { color: #E8A33D !important; }
+  .cm-def { color: #7DB8E8 !important; }
+  .cm-string, .cm-string-2 { color: #9FCF6F !important; }
+  .cm-number { color: #D89FE8 !important; }
+  .cm-comment { color: #6E6C66 !important; font-style: italic; }
+  .cm-variable { color: #E8E6E1 !important; }
+  .cm-operator { color: #C9C7C0 !important; }
+  .CodeMirror-hints {
+    background: #22262E !important;
+    border: 0.5px solid #3A3E47 !important;
+    color: #C9C7C0 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  }
+  .CodeMirror-hint { padding: 4px 10px !important; }
+  li.CodeMirror-hint-active {
+    background: #E8A33D !important;
+    color: #1A1D23 !important;
+  }
+  .cm-hint-type { color: #6E6C66; font-size: 11px; float: right; margin-left: 12px; }
   @media (max-width: 640px) {
     #splitArea { flex-direction: column; min-height: auto !important; }
     #splitArea > div:first-child { border-right: none !important; border-bottom: 0.5px solid #2E323B !important; min-height: 300px; }
@@ -74,7 +111,9 @@
     <div id="splitArea" style="display:flex; min-height:calc(100vh - 130px);">
       <div style="flex:1.3; display:flex; flex-direction:column; min-width:0; border-right:0.5px solid #2E323B;">
         <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif;">Editor</div>
-        <textarea id="editor" spellcheck="false" style="flex:1; background:#1A1D23; color:#E8E6E1; border:none; outline:none; resize:none; padding:4px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; tab-size:4; white-space:pre; overflow:auto;"></textarea>
+        <div style="flex:1; min-height:0; overflow:hidden;">
+          <textarea id="editor" spellcheck="false"></textarea>
+        </div>
       </div>
       <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
         <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between;">
@@ -86,13 +125,20 @@
     </div>
   </div>
 
-  <p style="color:#5A584F; font-size:12px; margin:10px 2px 0;">Code autosaves to this browser. Use "Save as…" to keep named snippets. Shortcut: Cmd/Ctrl+Enter to run.</p>
+  <p style="color:#5A584F; font-size:12px; margin:10px 2px 0;">Code autosaves to this browser. Use "Save as…" to keep named snippets. Shortcuts: Cmd/Ctrl+Enter to run, Ctrl+Space for suggestions.</p>
 </div>
 
 <script src="./pyodide/pyodide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js"></script>
 <script>
 (function() {
-  const editor = document.getElementById('editor');
+  const editorEl = document.getElementById('editor');
   const output = document.getElementById('output');
   const runBtn = document.getElementById('runBtn');
   const runLabel = document.getElementById('runLabel');
@@ -122,14 +168,107 @@ print("First 10 Fibonacci numbers:")
 print([fib(i) for i in range(10)])
 `;
 
-  // Tab key inserts spaces instead of moving focus
-  editor.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = editor.selectionStart, end = editor.selectionEnd;
-      editor.value = editor.value.slice(0, start) + '    ' + editor.value.slice(end);
-      editor.selectionStart = editor.selectionEnd = start + 4;
+  // --- Python-aware autocomplete ---
+  // CodeMirror 5 ships no official python-hint addon, so we build a small
+  // one: a curated list of keywords + builtins, merged with identifiers
+  // already typed in the buffer (so your own function/variable names
+  // show up too).
+  const PY_KEYWORDS = [
+    'False','None','True','and','as','assert','async','await','break','class',
+    'continue','def','del','elif','else','except','finally','for','from',
+    'global','if','import','in','is','lambda','nonlocal','not','or','pass',
+    'raise','return','try','while','with','yield'
+  ];
+  const PY_BUILTINS = [
+    'abs','aiter','anext','all','any','ascii','bin','bool','breakpoint',
+    'bytearray','bytes','callable','chr','classmethod','compile','complex',
+    'delattr','dict','dir','divmod','enumerate','eval','exec','filter',
+    'float','format','frozenset','getattr','globals','hasattr','hash',
+    'help','hex','id','input','int','isinstance','issubclass','iter','len',
+    'list','locals','map','max','min','next','object','oct','open','ord',
+    'pow','print','property','range','repr','reversed','round','set',
+    'setattr','slice','sorted','staticmethod','str','sum','super','tuple',
+    'type','vars','zip','self','__init__','__name__','__main__'
+  ];
+  const PY_WORDS = PY_KEYWORDS.concat(PY_BUILTINS);
+
+  function pythonHint(cm) {
+    const cursor = cm.getCursor();
+    const line = cm.getLine(cursor.line);
+    let start = cursor.ch, end = cursor.ch;
+    while (start && /[\w]/.test(line.charAt(start - 1))) start--;
+    while (end < line.length && /[\w]/.test(line.charAt(end))) end++;
+    const word = line.slice(start, end);
+
+    if (!word) return null;
+
+    // Pull identifiers already used anywhere in the buffer
+    const fullText = cm.getValue();
+    const identifierMatches = fullText.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    const userWords = Array.from(new Set(identifierMatches));
+
+    const pool = Array.from(new Set(PY_WORDS.concat(userWords)));
+    const matches = pool
+      .filter(w => w.toLowerCase().startsWith(word.toLowerCase()) && w !== word)
+      .sort((a, b) => {
+        // Keywords/builtins first, then alphabetical
+        const aIsCore = PY_WORDS.includes(a);
+        const bIsCore = PY_WORDS.includes(b);
+        if (aIsCore !== bIsCore) return aIsCore ? -1 : 1;
+        return a.localeCompare(b);
+      });
+
+    if (!matches.length) return null;
+
+    return {
+      list: matches,
+      from: CodeMirror.Pos(cursor.line, start),
+      to: CodeMirror.Pos(cursor.line, end)
+    };
+  }
+
+  // CodeMirror: real syntax highlighting, auto-indent after colons,
+  // smart dedent, matching/auto-closing brackets — everything a plain
+  // textarea can't do.
+  const editor = CodeMirror.fromTextArea(editorEl, {
+    mode: 'python',
+    theme: 'dracula',
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    indentWithTabs: false,
+    smartIndent: true,
+    electricChars: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    styleActiveLine: true,
+    hintOptions: { hint: pythonHint, completeSingle: false },
+    extraKeys: {
+      'Tab': function(cm) {
+        // Insert 4 spaces instead of a literal tab character
+        cm.replaceSelection('    ', 'end');
+      },
+      'Shift-Tab': 'indentLess',
+      'Cmd-Enter': function() { runCode(); },
+      'Ctrl-Enter': function() { runCode(); },
+      'Ctrl-Space': function(cm) { cm.showHint(); }
     }
+  });
+
+  // Auto-trigger suggestions while typing a word (not after every
+  // keystroke — only when there's a real word being built, and skip
+  // it right after autocomplete just inserted something).
+  editor.on('inputRead', function(cm, change) {
+    if (change.origin !== '+input') return;
+    const cursor = cm.getCursor();
+    const line = cm.getLine(cursor.line);
+    const charBefore = line.charAt(cursor.ch - 1);
+    if (!/[\w]/.test(charBefore)) return;
+    // Find how long the current word is so far
+    let start = cursor.ch;
+    while (start && /[\w]/.test(line.charAt(start - 1))) start--;
+    if (cursor.ch - start < 2) return; // wait for at least 2 characters
+    cm.showHint({ hint: pythonHint, completeSingle: false });
   });
 
   function setStatus(text, color) {
@@ -185,7 +324,7 @@ print([fib(i) for i in range(10)])
     setStatus('Running…', '#E8A33D');
     statusDot.style.animation = 'pulse 0.8s ease-in-out infinite';
 
-    const code = editor.value;
+    const code = editor.getValue();
     const start = performance.now();
     try {
       let result = await pyodide.runPythonAsync(code);
@@ -207,14 +346,6 @@ print([fib(i) for i in range(10)])
     }
   }
 
-  // Keyboard shortcut: Cmd/Ctrl+Enter to run
-  editor.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      runCode();
-    }
-  });
-
   runBtn.addEventListener('click', runCode);
   clearBtn.addEventListener('click', () => { output.textContent = ''; execTime.textContent = ''; });
 
@@ -222,19 +353,19 @@ print([fib(i) for i in range(10)])
   function loadBuffer() {
     try {
       const v = localStorage.getItem(BUFFER_KEY);
-      editor.value = v !== null ? v : DEFAULT_CODE;
+      editor.setValue(v !== null ? v : DEFAULT_CODE);
     } catch {
-      editor.value = DEFAULT_CODE;
+      editor.setValue(DEFAULT_CODE);
     }
   }
 
   function scheduleAutosave() {
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
-      try { localStorage.setItem(BUFFER_KEY, editor.value); } catch {}
+      try { localStorage.setItem(BUFFER_KEY, editor.getValue()); } catch {}
     }, 600);
   }
-  editor.addEventListener('input', scheduleAutosave);
+  editor.on('change', scheduleAutosave);
 
   function refreshSnippetList() {
     snippetSelect.innerHTML = '<option value="">Saved snippets…</option>';
@@ -259,7 +390,7 @@ print([fib(i) for i in range(10)])
     try {
       const v = localStorage.getItem(key);
       if (v !== null) {
-        editor.value = v;
+        editor.setValue(v);
         scheduleAutosave();
       }
     } catch {}
@@ -269,7 +400,7 @@ print([fib(i) for i in range(10)])
     const name = prompt('Save this snippet as:');
     if (!name) return;
     try {
-      localStorage.setItem(SNIPPET_PREFIX + name, editor.value);
+      localStorage.setItem(SNIPPET_PREFIX + name, editor.getValue());
       refreshSnippetList();
       snippetSelect.value = SNIPPET_PREFIX + name;
       deleteBtn.style.display = 'flex';
@@ -293,6 +424,8 @@ print([fib(i) for i in range(10)])
   loadBuffer();
   refreshSnippetList();
   boot();
+  editor.refresh();
+  window.addEventListener('resize', () => editor.refresh());
 })();
 </script>
 </body>
