@@ -92,7 +92,7 @@
   <p style="color:#5A584F; font-size:12px; margin:10px 2px 0;">Code autosaves to this browser. Use "Save as…" to keep named snippets. Shortcut: Cmd/Ctrl+Enter to run.</p>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pyodide/0.26.2/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 <script>
 (function() {
   const editor = document.getElementById('editor');
@@ -158,7 +158,7 @@ print([fib(i) for i in range(10)])
 
     try {
       pyodide = await loadPyodide({
-        indexURL: "https://cdnjs.cloudflare.com/ajax/libs/pyodide/0.26.2/full/"
+        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
       });
       pyodide.setStdout({ batched: (s) => appendOutput(s + '\n') });
       pyodide.setStderr({ batched: (s) => appendOutput(s + '\n', '#E07856') });
