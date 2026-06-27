@@ -159,14 +159,16 @@
           <span id="execTime" style="color:#6E6C66;"></span>
         </div>
 
-        <!-- REPL prompt: type Python here, runs against the same
-             interpreter/namespace as the editor's Run button -->
-        <div style="display:flex; align-items:center; gap:6px; padding:6px 14px; border-bottom:0.5px solid #2E323B;">
-          <span style="color:#E8A33D; font-family:'JetBrains Mono', monospace; font-size:13px;">&gt;&gt;&gt;</span>
-          <input id="replInput" type="text" spellcheck="false" autocomplete="off" placeholder="Waiting for Python to start…" style="flex:1; background:transparent; border:none; outline:none; color:#E8E6E1; font-family:'JetBrains Mono', monospace; font-size:13px;">
+        <!-- Single scrolling transcript: past commands/output stay in
+             history, and the live >>> input always sits as the last
+             line, just like a real terminal. -->
+        <div id="output" style="flex:1; padding:8px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; color:#C9C7C0; overflow:auto; white-space:pre-wrap; word-break:break-word; min-height:0;">
+          <div id="replPromptLine" style="display:flex; align-items:center; gap:6px; position:relative;">
+            <span style="color:#E8A33D;">&gt;&gt;&gt;</span>
+            <input id="replInput" type="text" spellcheck="false" autocomplete="off" placeholder="Waiting for Python to start…" style="flex:1; background:transparent; border:none; outline:none; color:#E8E6E1; font-family:'JetBrains Mono', monospace; font-size:13.5px;">
+            <div id="replHints" style="display:none; position:absolute; bottom:100%; left:30px; margin-bottom:4px; background:#22262E; border:0.5px solid #3A3E47; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.4); max-height:160px; overflow-y:auto; min-width:140px; z-index:10;"></div>
+          </div>
         </div>
-
-        <div id="output" style="flex:1; padding:8px 14px 14px; font-family:'JetBrains Mono', monospace; font-size:13.5px; line-height:1.6; color:#C9C7C0; overflow:auto; white-space:pre-wrap; word-break:break-word; min-height:0;"></div>
       </div>
     </div>
   </div>
@@ -186,6 +188,7 @@
 (function() {
   const editorEl = document.getElementById('editor');
   const output = document.getElementById('output');
+  const replPromptLine = document.getElementById('replPromptLine');
   const runBtn = document.getElementById('runBtn');
   const runLabel = document.getElementById('runLabel');
   const clearBtn = document.getElementById('clearBtn');
@@ -361,16 +364,25 @@ print([fib(i) for i in range(10)])
     });
   }
 
+  function clearOutput() {
+    // Remove every child except the live prompt line, which must
+    // always remain the last element in the transcript.
+    Array.from(output.children).forEach(child => {
+      if (child !== replPromptLine) child.remove();
+    });
+  }
+
   function appendOutput(text, color) {
     const span = document.createElement('span');
     span.textContent = text;
     if (color) span.style.color = color;
-    output.appendChild(span);
+    output.insertBefore(span, replPromptLine);
     scrollOutputToBottom();
   }
 
   let pyodide = null;
   let autosaveTimer = null;
+  let runProducedOutput = false;
 
   async function boot() {
     retryBtn.style.display = 'none';
@@ -381,8 +393,8 @@ print([fib(i) for i in range(10)])
       pyodide = await loadPyodide({
         indexURL: "./pyodide/"
       });
-      pyodide.setStdout({ batched: (s) => appendOutput(s + '\n') });
-      pyodide.setStderr({ batched: (s) => appendOutput(s + '\n', '#E07856') });
+      pyodide.setStdout({ batched: (s) => { runProducedOutput = true; appendOutput(s + '\n'); } });
+      pyodide.setStderr({ batched: (s) => { runProducedOutput = true; appendOutput(s + '\n', '#E07856'); } });
       setStatus('Ready', '#6FCF8F');
       statusDot.style.animation = 'none';
       runBtn.disabled = false;
@@ -403,7 +415,7 @@ print([fib(i) for i in range(10)])
       appendOutput('Python is still starting up — try again in a moment.', '#E8A33D');
       return;
     }
-    output.textContent = '';
+    clearOutput();
     execTime.textContent = '';
     runLabel.textContent = 'Running…';
     runBtn.disabled = true;
@@ -412,11 +424,12 @@ print([fib(i) for i in range(10)])
 
     const code = editor.getValue();
     const start = performance.now();
+    runProducedOutput = false;
     try {
       let result = await pyodide.runPythonAsync(code);
       const elapsed = Math.round(performance.now() - start);
       execTime.textContent = 'ran in ' + elapsed + 'ms';
-      if (result !== undefined && result !== null && output.textContent === '') {
+      if (result !== undefined && result !== null && !runProducedOutput) {
         appendOutput(String(result), '#9A9890');
       }
       setStatus('Ready', '#6FCF8F');
@@ -433,7 +446,7 @@ print([fib(i) for i in range(10)])
   }
 
   runBtn.addEventListener('click', runCode);
-  clearBtn.addEventListener('click', () => { output.textContent = ''; execTime.textContent = ''; });
+  clearBtn.addEventListener('click', () => { clearOutput(); execTime.textContent = ''; });
 
   // --- Interactive REPL ---
   // Lets you type Python directly into the console and run it against
@@ -454,7 +467,7 @@ print([fib(i) for i in range(10)])
     rest.textContent = text;
     if (color) rest.style.color = color;
     line.appendChild(rest);
-    output.appendChild(line);
+    output.insertBefore(line, replPromptLine);
     scrollOutputToBottom();
   }
 
@@ -492,24 +505,129 @@ print([fib(i) for i in range(10)])
     scrollOutputToBottom();
   }
 
+  // --- Console autocomplete ---
+  // A lightweight word-completion dropdown for the plain <input>, since
+  // CodeMirror's hint API only works on CodeMirror instances. Reuses
+  // the same keyword/builtin list as the editor, plus identifiers
+  // found in the editor buffer and REPL history.
+  const replHints = document.getElementById('replHints');
+  let replSuggestions = [];
+  let replSuggestionIndex = -1;
+
+  function getReplCurrentWord() {
+    const val = replInput.value;
+    const caret = replInput.selectionStart;
+    let start = caret;
+    while (start > 0 && /[\w]/.test(val.charAt(start - 1))) start--;
+    return { word: val.slice(start, caret), start, end: caret };
+  }
+
+  function hideReplHints() {
+    replHints.style.display = 'none';
+    replHints.innerHTML = '';
+    replSuggestions = [];
+    replSuggestionIndex = -1;
+  }
+
+  function renderReplHints() {
+    replHints.innerHTML = '';
+    replSuggestions.forEach((word, i) => {
+      const item = document.createElement('div');
+      item.textContent = word;
+      item.style.padding = '4px 10px';
+      item.style.cursor = 'pointer';
+      item.style.fontFamily = "'JetBrains Mono', monospace";
+      item.style.fontSize = '13px';
+      item.style.color = '#C9C7C0';
+      if (i === replSuggestionIndex) {
+        item.style.background = '#E8A33D';
+        item.style.color = '#1A1D23';
+      }
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // keep focus on the input
+        applyReplSuggestion(word);
+      });
+      replHints.appendChild(item);
+    });
+    replHints.style.display = replSuggestions.length ? 'block' : 'none';
+  }
+
+  function applyReplSuggestion(word) {
+    const { start, end } = getReplCurrentWord();
+    const val = replInput.value;
+    replInput.value = val.slice(0, start) + word + val.slice(end);
+    const newCaret = start + word.length;
+    replInput.setSelectionRange(newCaret, newCaret);
+    hideReplHints();
+  }
+
+  function updateReplHints() {
+    const { word } = getReplCurrentWord();
+    if (word.length < 2) {
+      hideReplHints();
+      return;
+    }
+    // Pull identifiers from the editor buffer too, so functions/classes
+    // you defined there show up while typing in the console.
+    const bufferText = editor.getValue();
+    const identifierMatches = bufferText.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    const pool = Array.from(new Set(PY_WORDS.concat(identifierMatches)));
+    replSuggestions = pool
+      .filter(w => w.toLowerCase().startsWith(word.toLowerCase()) && w !== word)
+      .sort((a, b) => {
+        const aCore = PY_WORDS.includes(a), bCore = PY_WORDS.includes(b);
+        if (aCore !== bCore) return aCore ? -1 : 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 10);
+    replSuggestionIndex = replSuggestions.length ? 0 : -1;
+    renderReplHints();
+  }
+
+  replInput.addEventListener('input', updateReplHints);
+
   replInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const line = replInput.value;
       if (!line.trim()) return;
+      if (replSuggestions.length) {
+        // Enter with an open dropdown accepts the highlighted
+        // suggestion instead of running the line — matches the
+        // editor's autocomplete behavior.
+        applyReplSuggestion(replSuggestions[replSuggestionIndex]);
+        return;
+      }
       replHistory.push(line);
       replHistoryIndex = replHistory.length;
       replInput.value = '';
       runReplLine(line);
     } else if (e.key === 'ArrowUp') {
+      if (replSuggestions.length) {
+        e.preventDefault();
+        replSuggestionIndex = Math.max(0, replSuggestionIndex - 1);
+        renderReplHints();
+        return;
+      }
       if (replHistory.length === 0) return;
       e.preventDefault();
       replHistoryIndex = Math.max(0, replHistoryIndex - 1);
       replInput.value = replHistory[replHistoryIndex] || '';
     } else if (e.key === 'ArrowDown') {
+      if (replSuggestions.length) {
+        e.preventDefault();
+        replSuggestionIndex = Math.min(replSuggestions.length - 1, replSuggestionIndex + 1);
+        renderReplHints();
+        return;
+      }
       if (replHistory.length === 0) return;
       e.preventDefault();
       replHistoryIndex = Math.min(replHistory.length, replHistoryIndex + 1);
       replInput.value = replHistory[replHistoryIndex] || '';
+    } else if (e.key === 'Escape') {
+      hideReplHints();
+    } else if (e.key === 'Tab' && replSuggestions.length) {
+      e.preventDefault();
+      applyReplSuggestion(replSuggestions[replSuggestionIndex]);
     }
   });
 
@@ -522,6 +640,7 @@ print([fib(i) for i in range(10)])
     if (!text.includes('\n')) return; // single line: let default paste happen
 
     e.preventDefault();
+    hideReplHints();
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     (async () => {
       for (const line of lines) {
