@@ -186,7 +186,10 @@
       <div id="aiPanel" style="display:none; flex:1 1 0%; flex-direction:column; min-width:0; border-left:0.5px solid #2E323B;">
         <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between; align-items:center;">
           <span>Ask AI about your code</span>
-          <button id="aiCloseBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:16px; line-height:1; padding:0;" aria-label="Close AI panel">&times;</button>
+          <span style="display:flex; align-items:center; gap:10px;">
+            <button id="aiChangeKeyBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:11px; letter-spacing:0.04em; text-transform:none; font-family:'Inter',sans-serif; padding:0;">Change key</button>
+            <button id="aiCloseBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:16px; line-height:1; padding:0;" aria-label="Close AI panel">&times;</button>
+          </span>
         </div>
 
         <div id="aiKeySetup" style="display:none; padding:10px 14px; font-family:'Inter',sans-serif;">
@@ -995,6 +998,14 @@ print([fib(i) for i in range(10)])
   });
   aiCloseBtn.addEventListener('click', () => { aiPanel.style.display = 'none'; });
 
+  const aiChangeKeyBtn = document.getElementById('aiChangeKeyBtn');
+  aiChangeKeyBtn.addEventListener('click', () => {
+    aiProviderSelect.value = getCurrentProvider();
+    aiKeyInput.value = '';
+    aiKeySetup.style.display = 'block';
+    aiKeyInput.focus();
+  });
+
   aiProviderSelect.addEventListener('change', () => {
     const key = getApiKey(aiProviderSelect.value);
     aiKeyInput.value = '';
@@ -1065,7 +1076,7 @@ print([fib(i) for i in range(10)])
   }
 
   async function callGemini(key, userContent) {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
     const response = await fetch(url, {
       method: 'POST',
       headers: {
