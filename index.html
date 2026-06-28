@@ -1051,21 +1051,36 @@ print([fib(i) for i in range(10)])
     'code snippet at most, not a full essay. Do not repeat their code back to them unless specifically asked to.';
 
   async function callAnthropic(key, userContent) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        system: AI_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    let response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 1024,
+          system: AI_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userContent }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        return { ok: false, status: 0, message: 'Claude took too long to respond (over 20s). Try again in a moment, or switch providers.' };
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     const data = await response.json();
     if (!response.ok) {
       const message = (data && data.error && data.error.message) || ('Request failed (' + response.status + ')');
@@ -1077,17 +1092,32 @@ print([fib(i) for i in range(10)])
 
   async function callGemini(key, userContent) {
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': key,
-      },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': key,
+        },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: userContent }] }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        return { ok: false, status: 0, message: 'Gemini took too long to respond (over 20s) — it may be overloaded right now. Try again in a moment, or switch providers.' };
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
     const data = await response.json();
     if (!response.ok) {
       const message = (data && data.error && data.error.message) || ('Request failed (' + response.status + ')');
