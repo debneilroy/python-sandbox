@@ -417,10 +417,10 @@ print([fib(i) for i in range(10)])
   }
 
   function appendOutput(text, color) {
-    const span = document.createElement('span');
-    span.textContent = text;
-    if (color) span.style.color = color;
-    output.insertBefore(span, replPromptLine);
+    const line = document.createElement('div');
+    line.textContent = text;
+    if (color) line.style.color = color;
+    output.insertBefore(line, replPromptLine);
     scrollOutputToBottom();
   }
 
