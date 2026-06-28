@@ -141,6 +141,10 @@
 
       <div style="flex:1;"></div>
 
+      <button id="aiToggleBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif; margin-right:8px;">
+        ✦ Ask AI
+      </button>
+
       <div id="statusPill" style="display:flex; align-items:center; gap:6px; font-size:12px; color:#9A9890; font-family:'Inter',sans-serif;">
         <span id="statusDot" style="width:7px; height:7px; border-radius:50%; background:#E8A33D; display:inline-block;"></span>
         <span id="statusText">Booting Python…</span>
@@ -173,6 +177,31 @@
             <input id="replInput" type="text" spellcheck="false" autocomplete="off" placeholder="Waiting for Python to start…" style="flex:1; background:transparent; border:none; outline:none; color:#E8E6E1; font-family:'JetBrains Mono', monospace; font-size:13.5px;">
             <div id="replHints" style="display:none; position:absolute; bottom:100%; left:30px; margin-bottom:4px; background:#22262E; border:0.5px solid #3A3E47; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.4); max-height:160px; overflow-y:auto; min-width:140px; z-index:10;"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- AI assistant panel: hidden by default, toggled via the
+           "Ask AI" button. Calls the Anthropic API directly from the
+           browser using the user's own key (stored locally only). -->
+      <div id="aiPanel" style="display:none; flex:1 1 0%; flex-direction:column; min-width:0; border-left:0.5px solid #2E323B;">
+        <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between; align-items:center;">
+          <span>Ask AI about your code</span>
+          <button id="aiCloseBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:16px; line-height:1; padding:0;" aria-label="Close AI panel">&times;</button>
+        </div>
+
+        <div id="aiKeySetup" style="display:none; padding:10px 14px; font-family:'Inter',sans-serif;">
+          <p style="color:#9A9890; font-size:12.5px; margin:0 0 8px;">Paste your Anthropic API key to enable this. It's stored only in this browser and sent directly to Anthropic — never anywhere else.</p>
+          <input id="aiKeyInput" type="password" placeholder="sk-ant-…" autocomplete="off" style="width:100%; box-sizing:border-box; background:#1A1D23; color:#E8E6E1; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 10px; font-size:13px; font-family:'JetBrains Mono', monospace; outline:none; margin-bottom:8px;">
+          <button id="aiKeySaveBtn" style="background:#E8A33D; color:#1A1D23; border:none; border-radius:6px; padding:6px 14px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">Save key</button>
+        </div>
+
+        <div id="aiMessages" style="flex:1; padding:10px 14px; font-family:'Inter',sans-serif; font-size:13px; line-height:1.55; color:#C9C7C0; overflow-y:auto; min-height:0;"></div>
+
+        <div style="display:flex; align-items:flex-end; gap:6px; padding:8px 10px; border-top:0.5px solid #2E323B;">
+          <textarea id="aiQuestionInput" placeholder="Ask about your code…" rows="1" style="flex:1; resize:none; background:#1A1D23; color:#E8E6E1; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 10px; font-size:13px; font-family:'Inter',sans-serif; outline:none; max-height:100px;"></textarea>
+          <button id="aiSendBtn" style="display:flex; align-items:center; justify-content:center; background:#E8A33D; color:#1A1D23; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:14px; line-height:1;">
+            ➤
+          </button>
         </div>
       </div>
     </div>
@@ -891,6 +920,158 @@ print([fib(i) for i in range(10)])
     timerToggleBtn.setAttribute('aria-label', 'Start timer');
     updateTimerDisplay();
   });
+
+  // --- AI assistant ---
+  // Calls the Anthropic API directly from the browser with the user's
+  // own key. The key lives only in this browser's localStorage and is
+  // sent only to api.anthropic.com — nowhere else, never to any
+  // server of ours (this page has no server).
+  const AI_KEY_STORAGE = STORAGE_PREFIX + 'anthropic_api_key';
+  const aiToggleBtn = document.getElementById('aiToggleBtn');
+  const aiPanel = document.getElementById('aiPanel');
+  const aiCloseBtn = document.getElementById('aiCloseBtn');
+  const aiKeySetup = document.getElementById('aiKeySetup');
+  const aiKeyInput = document.getElementById('aiKeyInput');
+  const aiKeySaveBtn = document.getElementById('aiKeySaveBtn');
+  const aiMessages = document.getElementById('aiMessages');
+  const aiQuestionInput = document.getElementById('aiQuestionInput');
+  const aiSendBtn = document.getElementById('aiSendBtn');
+
+  function getApiKey() {
+    try { return localStorage.getItem(AI_KEY_STORAGE); } catch { return null; }
+  }
+
+  function aiAddMessage(role, text, isError) {
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '12px';
+
+    const label = document.createElement('div');
+    label.textContent = role === 'user' ? 'You' : 'Claude';
+    label.style.fontSize = '11px';
+    label.style.fontWeight = '600';
+    label.style.color = role === 'user' ? '#9A9890' : '#E8A33D';
+    label.style.marginBottom = '3px';
+    wrap.appendChild(label);
+
+    const body = document.createElement('div');
+    body.textContent = text;
+    body.style.whiteSpace = 'pre-wrap';
+    body.style.color = isError ? '#E07856' : '#C9C7C0';
+    wrap.appendChild(body);
+
+    aiMessages.appendChild(wrap);
+    aiMessages.scrollTop = aiMessages.scrollHeight;
+    return body;
+  }
+
+  function openAiPanel() {
+    aiPanel.style.display = 'flex';
+    const key = getApiKey();
+    aiKeySetup.style.display = key ? 'none' : 'block';
+    if (key) aiQuestionInput.focus();
+  }
+
+  aiToggleBtn.addEventListener('click', () => {
+    if (aiPanel.style.display === 'flex') {
+      aiPanel.style.display = 'none';
+    } else {
+      openAiPanel();
+    }
+  });
+  aiCloseBtn.addEventListener('click', () => { aiPanel.style.display = 'none'; });
+
+  aiKeySaveBtn.addEventListener('click', () => {
+    const key = aiKeyInput.value.trim();
+    if (!key) return;
+    try {
+      localStorage.setItem(AI_KEY_STORAGE, key);
+      aiKeyInput.value = '';
+      aiKeySetup.style.display = 'none';
+      aiQuestionInput.focus();
+    } catch {
+      aiAddMessage('assistant', 'Could not save the key — your browser storage may be full or blocked.', true);
+    }
+  });
+
+  // Textarea grows with content, up to the CSS max-height
+  aiQuestionInput.addEventListener('input', () => {
+    aiQuestionInput.style.height = 'auto';
+    aiQuestionInput.style.height = aiQuestionInput.scrollHeight + 'px';
+  });
+
+  aiQuestionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendAiQuestion();
+    }
+  });
+  aiSendBtn.addEventListener('click', sendAiQuestion);
+
+  async function sendAiQuestion() {
+    const question = aiQuestionInput.value.trim();
+    if (!question) return;
+    const key = getApiKey();
+    if (!key) {
+      aiKeySetup.style.display = 'block';
+      return;
+    }
+
+    aiAddMessage('user', question);
+    aiQuestionInput.value = '';
+    aiQuestionInput.style.height = 'auto';
+    aiSendBtn.disabled = true;
+
+    const responseEl = aiAddMessage('assistant', 'Thinking…');
+
+    const code = editor.getValue();
+    const systemPrompt = 'You are a concise coding assistant helping someone practice LeetCode-style Python problems. ' +
+      'You will be shown their current code and a question. Answer directly and concisely — a few sentences or a short ' +
+      'code snippet at most, not a full essay. Do not repeat their code back to them unless specifically asked to.';
+    const userContent = 'Here is my current code:\n\n```python\n' + code + '\n```\n\nMy question: ' + question;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message = (data && data.error && data.error.message) || ('Request failed (' + response.status + ')');
+        if (response.status === 401) {
+          responseEl.textContent = 'That API key was rejected. Double-check it, or save a new one below.';
+          responseEl.style.color = '#E07856';
+          aiKeySetup.style.display = 'block';
+        } else {
+          responseEl.textContent = message;
+          responseEl.style.color = '#E07856';
+        }
+        return;
+      }
+
+      const textBlock = (data.content || []).find(b => b.type === 'text');
+      responseEl.textContent = textBlock ? textBlock.text : '(no text in response)';
+      responseEl.style.color = '#C9C7C0';
+    } catch (err) {
+      responseEl.textContent = 'Network error reaching the Anthropic API: ' + (err.message || err);
+      responseEl.style.color = '#E07856';
+    } finally {
+      aiSendBtn.disabled = false;
+      aiMessages.scrollTop = aiMessages.scrollHeight;
+    }
+  }
 
   // --- Init ---
   loadBuffer();
