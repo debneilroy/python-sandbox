@@ -26,7 +26,14 @@ A code editor and console split-pane UI that runs genuine CPython 3.12 entirely 
 - Autosave — code and console state persist in the browser
 - Named snippets — save and reload multiple pieces of code via "Save as…"
 - Built-in timer — useful for timing yourself on a problem
+- Clear output button — wipes the console transcript
 - Fully offline-capable — Pyodide's runtime files are bundled directly in this repo (see `pyodide/`), so the page makes no external network calls once loaded
+
+**AI assistant**
+- Click `✦ Ask AI` to open a side panel and ask questions about your code
+- Supports two providers: **Anthropic (Claude)** and **Google Gemini**
+- Your API key is stored only in your browser's `localStorage` and sent directly to the provider — it never touches any other server
+- The AI has context of whatever is in the editor when you ask
 
 ## Why the `pyodide/` folder is here
 
@@ -39,7 +46,14 @@ Runtime version: **Pyodide 0.26.2** (Python 3.12)
 - Standard library only — no `numpy`, `pandas`, or other third-party packages preinstalled
 - Saved snippets and console history live in the browser's `localStorage`, so they don't sync across devices or browsers
 - No file I/O or network access from within the sandboxed Python environment
-- `input()` calls inside scripts don't pause and wait for typed input (a separate, browser-limited Pyodide feature) — use the console to interact with objects instead
+- `input()` calls inside scripts don't pause and wait for typed input (a browser-level Pyodide limitation) — use the console to interact with objects instead
+
+_AI assistant:_
+- **Gemini free tier** — has rate limits (requests per minute and per day). If you hit them you'll need to wait before sending another question. No cost, but throttled.
+- **Anthropic (Claude)** — paid API. New accounts get a $5 free credit, after which you're billed per token. Costs are low for short Q&A but can add up with long conversations.
+- The AI can only see what's in the editor at the time you ask — it has no access to your console history or runtime state.
+- There is no conversation memory between sessions — each page reload starts a fresh chat.
+- The AI panel doesn't execute code — it only answers questions. Run the code yourself in the editor/console.
 
 ## Local development
 
