@@ -18,10 +18,9 @@ A code editor and console split-pane UI that runs genuine CPython 3.12 entirely 
 
 **Console**
 - A real interactive REPL: type any Python statement at the `>>>` prompt and it runs immediately against the same interpreter session as the editor — build objects, call methods, inspect values, all live
-- The prompt behaves like a real terminal: each command becomes a permanent line in the transcript, and the live `>>>` always stays at the bottom as the history grows
+- The prompt behaves like a real terminal: each command becomes a permanent line in the transcript
 - Autocomplete in the console too, pulling from the editor's identifiers
 - Paste multiple lines at once (e.g. several tree-construction statements) and each runs in sequence automatically
-- `assert` statements get a clean ✓ / ✗ result instead of a raw traceback
 
 **Workflow**
 - Autosave — code and console state persist in the browser
