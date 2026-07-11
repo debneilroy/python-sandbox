@@ -125,11 +125,11 @@
         <i class="ti ti-player-play" style="font-size:15px;" aria-hidden="true"></i>
         <span id="runLabel">Run</span>
       </button>
-      <button id="clearBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
-        <i class="ti ti-eraser" style="font-size:15px;" aria-hidden="true"></i> Clear output
-      </button>
       <button id="clearEditorBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
         <i class="ti ti-file-off" style="font-size:15px;" aria-hidden="true"></i> Clear editor
+      </button>
+      <button id="clearBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
+        <i class="ti ti-eraser" style="font-size:15px;" aria-hidden="true"></i> Clear output
       </button>
 
       <div style="width:1px; height:20px; background:#3A3E47; margin:0 2px;"></div>
@@ -577,19 +577,34 @@ def _pysandbox_hint_members(expr):
     statusDot.style.animation = 'pulse 0.8s ease-in-out infinite';
 
     const code = editor.getValue();
+    const lineCount = code.length ? code.split('\n').length : 0;
+
+    // Inserted before execution starts so it stays above any print()
+    // output that streams in live via the stdout callback; its wording
+    // is filled in once we know the outcome and elapsed time.
+    const banner = document.createElement('div');
+    banner.style.color = '#6E6C66';
+    banner.textContent = 'You ran ' + lineCount + ' line' + (lineCount === 1 ? '' : 's') + ' of Python 3…';
+    output.insertBefore(banner, replPromptLine);
+    scrollOutputToBottom();
+
     const start = performance.now();
     runProducedOutput = false;
     try {
       let result = await pyodide.runPythonAsync(code);
       const elapsed = Math.round(performance.now() - start);
+      const elapsedSec = (elapsed / 1000).toFixed(2);
       execTime.textContent = 'ran in ' + elapsed + 'ms';
+      banner.textContent = 'You ran ' + lineCount + ' line' + (lineCount === 1 ? '' : 's') + ' of Python 3 (finished in ' + elapsedSec + 's):';
       if (result !== undefined && result !== null && !runProducedOutput) {
         appendOutput(String(result), '#9A9890');
       }
       setStatus('Ready', '#6FCF8F');
     } catch (err) {
       const elapsed = Math.round(performance.now() - start);
+      const elapsedSec = (elapsed / 1000).toFixed(2);
       execTime.textContent = 'failed after ' + elapsed + 'ms';
+      banner.textContent = 'You ran ' + lineCount + ' line' + (lineCount === 1 ? '' : 's') + ' of Python 3 (failed after ' + elapsedSec + 's):';
       appendOutput(String(err.message || err), '#E07856');
       setStatus('Error', '#E07856');
     } finally {
