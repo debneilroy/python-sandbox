@@ -26,7 +26,7 @@ A code editor and console split-pane UI that runs genuine CPython 3.12 entirely 
 - Autosave — code and console state persist in the browser
 - Named snippets — save and reload multiple pieces of code via "Save as…"
 - Built-in timer — useful for timing yourself on a problem
-- Clear output button — wipes the console transcript
+- Clear output and Clear editor buttons — wipe the console transcript or the code buffer independently
 - Fully offline-capable — Pyodide's runtime files are bundled directly in this repo (see `pyodide/`), so the page makes no external network calls once loaded
 
 ## Why the `pyodide/` folder is here
