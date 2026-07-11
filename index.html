@@ -131,6 +131,9 @@
       <button id="clearBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
         <i class="ti ti-eraser" style="font-size:15px;" aria-hidden="true"></i> Clear output
       </button>
+      <button id="restartBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">
+        <i class="ti ti-refresh" style="font-size:15px;" aria-hidden="true"></i> Restart Python
+      </button>
 
       <div style="width:1px; height:20px; background:#3A3E47; margin:0 2px;"></div>
 
@@ -219,6 +222,7 @@
   const runLabel = document.getElementById('runLabel');
   const clearBtn = document.getElementById('clearBtn');
   const clearEditorBtn = document.getElementById('clearEditorBtn');
+  const restartBtn = document.getElementById('restartBtn');
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const execTime = document.getElementById('execTime');
@@ -619,6 +623,23 @@ def _pysandbox_hint_members(expr):
   clearEditorBtn.addEventListener('click', () => {
     editor.setValue('');
     editor.focus();
+  });
+
+  // Reinitializes Pyodide from scratch — unlike Clear output/Clear editor,
+  // this actually wipes all variables/functions/imports from the running
+  // interpreter, not just what's visible. boot() assigns a fresh instance
+  // to the module-level `pyodide` variable, so the old one (and everything
+  // defined in it) is simply discarded.
+  restartBtn.addEventListener('click', async () => {
+    runBtn.disabled = true;
+    restartBtn.disabled = true;
+    clearOutput();
+    execTime.textContent = '';
+    try {
+      await boot();
+    } finally {
+      restartBtn.disabled = false;
+    }
   });
 
   // --- Interactive REPL ---
