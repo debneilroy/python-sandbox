@@ -4,11 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Python sandbox</title>
+<!--
+  Defense-in-depth only: this page's JS lives in one inline script block,
+  so script-src must allow 'unsafe-inline' — an injected inline script would
+  still run. What this actually blocks: loading scripts/styles/fonts from
+  anywhere other than the exact CDNs this page already uses, and any
+  fetch()/XHR to an origin not explicitly listed below.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+  font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+  img-src 'self' data:;
+  connect-src 'self';
+  worker-src 'self' blob:;
+  object-src 'none';
+  base-uri 'self';
+">
+
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/@tabler/icons-webfont/2.47.0/tabler-icons.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/@tabler/icons-webfont/2.47.0/tabler-icons.min.css" integrity="sha384-op+5TtqnLjNQdezYR7V1XfVQheYGpejnqUSf7beUZW+9PvrmljvmrdPc6dJ6Ah6x" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" integrity="sha384-zaeBlB/vwYsDRSlFajnDd7OydJ0cWk+c2OWybl3eSUf6hW2EbhlCsQPqKr3gkznT" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" integrity="sha384-ccdJwIIg/K0Ab6aXF4MPACh7ckk61tvQFTrfkhXZEALgAETURNZIAuQLcS/aPbrM" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" integrity="sha384-TU/qRI67N04B589luYdn1ZMRIGgJic3GB1WsvLJTRh92VO26vpxI4dCKiDtsR4fw" crossorigin="anonymous">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -141,10 +160,6 @@
 
       <div style="flex:1;"></div>
 
-      <button id="aiToggleBtn" style="display:flex; align-items:center; gap:6px; background:transparent; color:#9A9890; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 12px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif; margin-right:8px;">
-        ✦ Ask AI
-      </button>
-
       <div id="statusPill" style="display:flex; align-items:center; gap:6px; font-size:12px; color:#9A9890; font-family:'Inter',sans-serif;">
         <span id="statusDot" style="width:7px; height:7px; border-radius:50%; background:#E8A33D; display:inline-block;"></span>
         <span id="statusText">Booting Python…</span>
@@ -180,37 +195,6 @@
         </div>
       </div>
 
-      <!-- AI assistant panel: hidden by default, toggled via the
-           "Ask AI" button. Calls the Anthropic API directly from the
-           browser using the user's own key (stored locally only). -->
-      <div id="aiPanel" style="display:none; flex:1 1 0%; flex-direction:column; min-width:0; border-left:0.5px solid #2E323B;">
-        <div style="font-size:11px; color:#6E6C66; padding:8px 14px 4px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Inter',sans-serif; display:flex; justify-content:space-between; align-items:center;">
-          <span>Ask AI about your code</span>
-          <span style="display:flex; align-items:center; gap:10px;">
-            <button id="aiChangeKeyBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:11px; letter-spacing:0.04em; text-transform:none; font-family:'Inter',sans-serif; padding:0;">Change key</button>
-            <button id="aiCloseBtn" style="background:transparent; border:none; color:#6E6C66; cursor:pointer; font-size:16px; line-height:1; padding:0;" aria-label="Close AI panel">&times;</button>
-          </span>
-        </div>
-
-        <div id="aiKeySetup" style="display:none; padding:10px 14px; font-family:'Inter',sans-serif;">
-          <p style="color:#9A9890; font-size:12.5px; margin:0 0 8px;">Pick a provider and paste your API key. It's stored only in this browser and sent directly to that provider — never anywhere else.</p>
-          <select id="aiProviderSelect" style="width:100%; box-sizing:border-box; background:#1A1D23; color:#E8E6E1; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 10px; font-size:13px; font-family:'Inter',sans-serif; outline:none; margin-bottom:8px;">
-            <option value="anthropic">Anthropic (Claude) — paid, $5 free trial</option>
-            <option value="gemini">Google Gemini — free tier</option>
-          </select>
-          <input id="aiKeyInput" type="password" placeholder="Paste your API key…" autocomplete="off" style="width:100%; box-sizing:border-box; background:#1A1D23; color:#E8E6E1; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 10px; font-size:13px; font-family:'JetBrains Mono', monospace; outline:none; margin-bottom:8px;">
-          <button id="aiKeySaveBtn" style="background:#E8A33D; color:#1A1D23; border:none; border-radius:6px; padding:6px 14px; font-weight:500; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;">Save key</button>
-        </div>
-
-        <div id="aiMessages" style="flex:1; padding:10px 14px; font-family:'Inter',sans-serif; font-size:13px; line-height:1.55; color:#C9C7C0; overflow-y:auto; min-height:0;"></div>
-
-        <div style="display:flex; align-items:flex-end; gap:6px; padding:8px 10px; border-top:0.5px solid #2E323B;">
-          <textarea id="aiQuestionInput" placeholder="Ask about your code…" rows="1" style="flex:1; resize:none; background:#1A1D23; color:#E8E6E1; border:0.5px solid #3A3E47; border-radius:6px; padding:7px 10px; font-size:13px; font-family:'Inter',sans-serif; outline:none; max-height:100px;"></textarea>
-          <button id="aiSendBtn" style="display:flex; align-items:center; justify-content:center; background:#E8A33D; color:#1A1D23; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-size:14px; line-height:1;">
-            ➤
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -218,13 +202,13 @@
 </div>
 
 <script src="./pyodide/pyodide.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js" integrity="sha384-ZYmwuq4n2gOcNxMSiJ6jyTj+BbIrilr7p6dlq6q5nmSWKmsH9UU4K1qqjycMkfmR" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js" integrity="sha384-Xy+2exU6lBoT4OpUOtnQb+cUpn+nlJQEHvRobWVtwz6wIsw4oNoO7xyd/l8rYgMy" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js" integrity="sha384-LjCI3E8qhhxXZvu7+FCvqx9eZYSowFvuJ7z54KsgI/BDPGKEuysqCg/vYiKHvC4Y" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js" integrity="sha384-69mJoUoPPF/C7qPs6lLjvXvrt6w225+rmxWqGO3a1glVjITdnnwPQOtG9FRTd2Ni" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js" integrity="sha384-hcxaXyAtJ30s2NeDu1OHWsQRiHiWuYLTbI596+YFb+f2pFhzO0mDuahZziRPPDxg" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js" integrity="sha384-qCnKPgNYgVO8RO19jShRRAfU75+KVnN1cQy+8CPX/TTwJsUEJ/EpnwKx2UOyLx8c" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js" integrity="sha384-rDHukKfhrbN1Kz26OLWx+lOmYyTZtpvFRBX7YBuAf9dJtDMMSl6fhpGPYMDvrLD1" crossorigin="anonymous"></script>
 <script>
 (function() {
   const editorEl = document.getElementById('editor');
@@ -285,29 +269,55 @@ print([fib(i) for i in range(10)])
   ];
   const PY_WORDS = PY_KEYWORDS.concat(PY_BUILTINS);
 
-  function pythonHint(cm) {
-    const cursor = cm.getCursor();
-    const line = cm.getLine(cursor.line);
-    let start = cursor.ch, end = cursor.ch;
-    while (start && /[\w]/.test(line.charAt(start - 1))) start--;
-    while (end < line.length && /[\w]/.test(line.charAt(end))) end++;
-    const word = line.slice(start, end);
+  // Common str/list/dict/set/tuple methods — offered after a `.` instead of
+  // PY_WORDS, since keywords/builtins never appear in attribute position.
+  // No live type inference here (Pyodide state isn't consulted), so this is
+  // one merged pool rather than being narrowed to the actual receiver type.
+  const PY_METHODS = Array.from(new Set([
+    'capitalize','casefold','center','count','encode','endswith','expandtabs',
+    'find','format','format_map','index','isalnum','isalpha','isascii',
+    'isdecimal','isdigit','isidentifier','islower','isnumeric','isprintable',
+    'isspace','istitle','isupper','join','ljust','lower','lstrip','maketrans',
+    'partition','removeprefix','removesuffix','replace','rfind','rindex',
+    'rjust','rpartition','rsplit','rstrip','split','splitlines','startswith',
+    'strip','swapcase','title','translate','upper','zfill',
+    'append','clear','copy','extend','insert','pop','remove','reverse','sort',
+    'fromkeys','get','items','keys','popitem','setdefault','update','values',
+    'add','difference','difference_update','discard','intersection',
+    'intersection_update','isdisjoint','issubset','issuperset',
+    'symmetric_difference','symmetric_difference_update','union',
+  ]));
 
-    if (!word) return null;
+  // Captures the receiver expression immediately before a `.` — e.g. for
+  // "mydict['key'].ge", returns "mydict['key']". Deliberately rejects
+  // anything containing "(" or ")": allowing call expressions would mean
+  // re-executing arbitrary (possibly side-effecting) code on every
+  // keystroke just to compute completions.
+  function captureReceiverExpr(line, dotPos) {
+    let j = dotPos;
+    while (j > 0 && /[\w\].'"0-9]/.test(line.charAt(j - 1))) j--;
+    const expr = line.slice(j, dotPos);
+    if (!expr || /[()]/.test(expr) || !/^[A-Za-z_]/.test(expr)) return null;
+    return expr;
+  }
+
+  function staticHint(cm, cursor, line, start, end, word, isAttributeAccess) {
+    const corePool = isAttributeAccess ? PY_METHODS : PY_WORDS;
 
     // Pull identifiers already used anywhere in the buffer
     const fullText = cm.getValue();
     const identifierMatches = fullText.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
     const userWords = Array.from(new Set(identifierMatches));
 
-    const pool = Array.from(new Set(PY_WORDS.concat(userWords)));
+    const pool = Array.from(new Set(corePool.concat(userWords)));
     const matches = pool
       .filter(w => w.toLowerCase().startsWith(word.toLowerCase()) && w !== word)
       .sort((a, b) => {
-        // Keywords/builtins first, then alphabetical
-        const aIsCore = PY_WORDS.includes(a);
-        const bIsCore = PY_WORDS.includes(b);
-        if (aIsCore !== bIsCore) return aIsCore ? -1 : 1;
+        // Your own names first, then generic keywords/builtins/methods,
+        // then alphabetical — matches the console's autocomplete priority.
+        const aIsCore = corePool.includes(a);
+        const bIsCore = corePool.includes(b);
+        if (aIsCore !== bIsCore) return aIsCore ? 1 : -1;
         return a.localeCompare(b);
       });
 
@@ -319,6 +329,52 @@ print([fib(i) for i in range(10)])
       to: CodeMirror.Pos(cursor.line, end)
     };
   }
+
+  // Async so we can, when possible, ask the actual running Pyodide
+  // namespace what type a variable really is instead of guessing from a
+  // fixed method list. Falls back to the static guess whenever the
+  // receiver can't be captured, Pyodide isn't loaded yet, or the real
+  // lookup comes back empty (e.g. the name isn't defined yet).
+  function pythonHint(cm, callback) {
+    const cursor = cm.getCursor();
+    const line = cm.getLine(cursor.line);
+    let start = cursor.ch, end = cursor.ch;
+    while (start && /[\w]/.test(line.charAt(start - 1))) start--;
+    while (end < line.length && /[\w]/.test(line.charAt(end))) end++;
+    const word = line.slice(start, end);
+
+    if (!word) { callback(null); return; }
+
+    // A `.` immediately before the word means we're completing an
+    // attribute/method name, not a statement-level keyword or bare name.
+    const isAttributeAccess = start > 0 && line.charAt(start - 1) === '.';
+    const fallback = () => staticHint(cm, cursor, line, start, end, word, isAttributeAccess);
+
+    if (!isAttributeAccess || !pyodide) { callback(fallback()); return; }
+
+    const receiver = captureReceiverExpr(line, start - 1);
+    if (!receiver) { callback(fallback()); return; }
+
+    pyodide.runPythonAsync(`_pysandbox_hint_members(${JSON.stringify(receiver)})`)
+      .then(json => {
+        let members = [];
+        try { members = JSON.parse(json); } catch (e) { members = []; }
+
+        const matches = members
+          .filter(w => w.toLowerCase().startsWith(word.toLowerCase()) && w !== word)
+          .sort((a, b) => a.localeCompare(b));
+
+        if (!matches.length) { callback(fallback()); return; }
+
+        callback({
+          list: matches,
+          from: CodeMirror.Pos(cursor.line, start),
+          to: CodeMirror.Pos(cursor.line, end)
+        });
+      })
+      .catch(() => callback(fallback()));
+  }
+  pythonHint.async = true;
 
   // CodeMirror: real syntax highlighting, auto-indent after colons,
   // smart dedent, matching/auto-closing brackets — everything a plain
@@ -475,6 +531,22 @@ print([fib(i) for i in range(10)])
       });
       pyodide.setStdout({ batched: (s) => { runProducedOutput = true; appendOutput(s + '\n'); } });
       pyodide.setStderr({ batched: (s) => { runProducedOutput = true; appendOutput(s + '\n', '#E07856'); } });
+
+      // Helper for real autocomplete: resolves the actual runtime type of
+      // whatever's bound in the shared namespace and lists its real
+      // attributes, instead of guessing from a static method list.
+      // Defined once here rather than re-injected per keystroke; prefixed
+      // to avoid colliding with anything the user defines themselves.
+      pyodide.runPython(`
+import json as _pysandbox_json
+def _pysandbox_hint_members(expr):
+    try:
+        obj = eval(expr)
+        return _pysandbox_json.dumps(sorted(m for m in dir(obj) if not m.startswith('_')))
+    except Exception:
+        return _pysandbox_json.dumps([])
+`);
+
       setStatus('Ready', '#6FCF8F');
       statusDot.style.animation = 'none';
       runBtn.disabled = false;
@@ -648,7 +720,10 @@ print([fib(i) for i in range(10)])
       return;
     }
     // Pull identifiers from the editor buffer too, so functions/classes
-    // you defined there show up while typing in the console.
+    // you defined there show up while typing in the console. Ranked ahead
+    // of generic keywords/builtins — your own names are what you're
+    // almost always reaching for here, and the list is capped below, so
+    // burying them behind builtins could push them out entirely.
     const bufferText = editor.getValue();
     const identifierMatches = bufferText.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
     const pool = Array.from(new Set(PY_WORDS.concat(identifierMatches)));
@@ -656,7 +731,7 @@ print([fib(i) for i in range(10)])
       .filter(w => w.toLowerCase().startsWith(word.toLowerCase()) && w !== word)
       .sort((a, b) => {
         const aCore = PY_WORDS.includes(a), bCore = PY_WORDS.includes(b);
-        if (aCore !== bCore) return aCore ? -1 : 1;
+        if (aCore !== bCore) return aCore ? 1 : -1;
         return a.localeCompare(b);
       })
       .slice(0, 10);
@@ -927,257 +1002,6 @@ print([fib(i) for i in range(10)])
     timerToggleBtn.setAttribute('aria-label', 'Start timer');
     updateTimerDisplay();
   });
-
-  // --- AI assistant ---
-  // Calls either the Anthropic API or the Google Gemini API directly
-  // from the browser with the user's own key. The key lives only in
-  // this browser's localStorage and is sent only to that provider's
-  // API — nowhere else, never to any server of ours (this page has
-  // no server).
-  const AI_PROVIDER_STORAGE = STORAGE_PREFIX + 'ai_provider';
-  const AI_KEY_STORAGE_ANTHROPIC = STORAGE_PREFIX + 'anthropic_api_key';
-  const AI_KEY_STORAGE_GEMINI = STORAGE_PREFIX + 'gemini_api_key';
-
-  const aiToggleBtn = document.getElementById('aiToggleBtn');
-  const aiPanel = document.getElementById('aiPanel');
-  const aiCloseBtn = document.getElementById('aiCloseBtn');
-  const aiKeySetup = document.getElementById('aiKeySetup');
-  const aiProviderSelect = document.getElementById('aiProviderSelect');
-  const aiKeyInput = document.getElementById('aiKeyInput');
-  const aiKeySaveBtn = document.getElementById('aiKeySaveBtn');
-  const aiMessages = document.getElementById('aiMessages');
-  const aiQuestionInput = document.getElementById('aiQuestionInput');
-  const aiSendBtn = document.getElementById('aiSendBtn');
-
-  function getCurrentProvider() {
-    try { return localStorage.getItem(AI_PROVIDER_STORAGE) || 'anthropic'; } catch { return 'anthropic'; }
-  }
-
-  function getApiKey(provider) {
-    const storageKey = provider === 'gemini' ? AI_KEY_STORAGE_GEMINI : AI_KEY_STORAGE_ANTHROPIC;
-    try { return localStorage.getItem(storageKey); } catch { return null; }
-  }
-
-  function aiAddMessage(role, text, isError) {
-    const wrap = document.createElement('div');
-    wrap.style.marginBottom = '12px';
-
-    const label = document.createElement('div');
-    label.textContent = role === 'user' ? 'You' : 'AI';
-    label.style.fontSize = '11px';
-    label.style.fontWeight = '600';
-    label.style.color = role === 'user' ? '#9A9890' : '#E8A33D';
-    label.style.marginBottom = '3px';
-    wrap.appendChild(label);
-
-    const body = document.createElement('div');
-    body.textContent = text;
-    body.style.whiteSpace = 'pre-wrap';
-    body.style.color = isError ? '#E07856' : '#C9C7C0';
-    wrap.appendChild(body);
-
-    aiMessages.appendChild(wrap);
-    aiMessages.scrollTop = aiMessages.scrollHeight;
-    return body;
-  }
-
-  function openAiPanel() {
-    aiPanel.style.display = 'flex';
-    aiProviderSelect.value = getCurrentProvider();
-    const key = getApiKey(getCurrentProvider());
-    aiKeySetup.style.display = key ? 'none' : 'block';
-    if (key) aiQuestionInput.focus();
-  }
-
-  aiToggleBtn.addEventListener('click', () => {
-    if (aiPanel.style.display === 'flex') {
-      aiPanel.style.display = 'none';
-    } else {
-      openAiPanel();
-    }
-  });
-  aiCloseBtn.addEventListener('click', () => { aiPanel.style.display = 'none'; });
-
-  const aiChangeKeyBtn = document.getElementById('aiChangeKeyBtn');
-  aiChangeKeyBtn.addEventListener('click', () => {
-    aiProviderSelect.value = getCurrentProvider();
-    aiKeyInput.value = '';
-    aiKeySetup.style.display = 'block';
-    aiKeyInput.focus();
-  });
-
-  aiProviderSelect.addEventListener('change', () => {
-    const key = getApiKey(aiProviderSelect.value);
-    aiKeyInput.value = '';
-    if (key) {
-      aiKeySetup.style.display = 'none';
-      try { localStorage.setItem(AI_PROVIDER_STORAGE, aiProviderSelect.value); } catch {}
-      aiQuestionInput.focus();
-    }
-  });
-
-  aiKeySaveBtn.addEventListener('click', () => {
-    const key = aiKeyInput.value.trim();
-    if (!key) return;
-    const provider = aiProviderSelect.value;
-    const storageKey = provider === 'gemini' ? AI_KEY_STORAGE_GEMINI : AI_KEY_STORAGE_ANTHROPIC;
-    try {
-      localStorage.setItem(storageKey, key);
-      localStorage.setItem(AI_PROVIDER_STORAGE, provider);
-      aiKeyInput.value = '';
-      aiKeySetup.style.display = 'none';
-      aiQuestionInput.focus();
-    } catch {
-      aiAddMessage('assistant', 'Could not save the key — your browser storage may be full or blocked.', true);
-    }
-  });
-
-  // Textarea grows with content, up to the CSS max-height
-  aiQuestionInput.addEventListener('input', () => {
-    aiQuestionInput.style.height = 'auto';
-    aiQuestionInput.style.height = aiQuestionInput.scrollHeight + 'px';
-  });
-
-  aiQuestionInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendAiQuestion();
-    }
-  });
-  aiSendBtn.addEventListener('click', sendAiQuestion);
-
-  const AI_SYSTEM_PROMPT = 'You are a concise coding assistant helping someone practice LeetCode-style Python problems. ' +
-    'You will be shown their current code and a question. Answer directly and concisely — a few sentences or a short ' +
-    'code snippet at most, not a full essay. Do not repeat their code back to them unless specifically asked to.';
-
-  async function callAnthropic(key, userContent) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    let response;
-    try {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 1024,
-          system: AI_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userContent }],
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        return { ok: false, status: 0, message: 'Claude took too long to respond (over 20s). Try again in a moment, or switch providers.' };
-      }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    const data = await response.json();
-    if (!response.ok) {
-      const message = (data && data.error && data.error.message) || ('Request failed (' + response.status + ')');
-      return { ok: false, status: response.status, message };
-    }
-    const textBlock = (data.content || []).find(b => b.type === 'text');
-    return { ok: true, text: textBlock ? textBlock.text : '(no text in response)' };
-  }
-
-  async function callGemini(key, userContent) {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    let response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-goog-api-key': key,
-        },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
-          contents: [{ role: 'user', parts: [{ text: userContent }] }],
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        return { ok: false, status: 0, message: 'Gemini took too long to respond (over 20s) — it may be overloaded right now. Try again in a moment, or switch providers.' };
-      }
-      throw err;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    const data = await response.json();
-    if (!response.ok) {
-      const message = (data && data.error && data.error.message) || ('Request failed (' + response.status + ')');
-      return { ok: false, status: response.status, message };
-    }
-    const candidate = (data.candidates || [])[0];
-    const part = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0];
-    return { ok: true, text: part ? part.text : '(no text in response)' };
-  }
-
-  async function sendAiQuestion() {
-    const question = aiQuestionInput.value.trim();
-    if (!question) return;
-    const provider = getCurrentProvider();
-    const key = getApiKey(provider);
-    if (!key) {
-      aiKeySetup.style.display = 'block';
-      return;
-    }
-
-    aiAddMessage('user', question);
-    aiQuestionInput.value = '';
-    aiQuestionInput.style.height = 'auto';
-    aiSendBtn.disabled = true;
-
-    const responseEl = aiAddMessage('assistant', 'Thinking…');
-
-    const code = editor.getValue();
-    const userContent = 'Here is my current code:\n\n```python\n' + code + '\n```\n\nMy question: ' + question;
-
-    try {
-      const result = provider === 'gemini'
-        ? await callGemini(key, userContent)
-        : await callAnthropic(key, userContent);
-
-      if (!result.ok) {
-        if (result.status === 401 || result.status === 403) {
-          responseEl.textContent = 'That API key was rejected. Double-check it, or save a new one below.';
-          responseEl.style.color = '#E07856';
-          aiKeySetup.style.display = 'block';
-        } else {
-          responseEl.textContent = result.message;
-          responseEl.style.color = '#E07856';
-        }
-        return;
-      }
-
-      responseEl.textContent = result.text;
-      responseEl.style.color = '#C9C7C0';
-    } catch (err) {
-      const isLikelyCors = err instanceof TypeError;
-      responseEl.textContent = isLikelyCors
-        ? 'Could not reach the API. This is often a CORS restriction the browser enforces (the provider may not allow direct browser calls), but could also be a network issue. Try the other provider in the dropdown above.'
-        : 'Network error: ' + (err.message || err);
-      responseEl.style.color = '#E07856';
-    } finally {
-      aiSendBtn.disabled = false;
-      aiMessages.scrollTop = aiMessages.scrollHeight;
-    }
-  }
 
   // --- Init ---
   loadBuffer();
